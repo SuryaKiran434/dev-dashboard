@@ -1,0 +1,49 @@
+name: Build dashboard
+
+on:
+  schedule:
+    # Every 30 minutes. GitHub queues cron generously on shared runners,
+    # so treat this as "roughly half-hourly", not exact.
+    - cron: "*/30 * * * *"
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+# Only one deploy at a time; a queued run supersedes an older pending one.
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+
+      # DASHBOARD_TOKEN (a PAT with repo + security_events) enables the
+      # Dependabot alert columns. Without it the build still succeeds and the
+      # page says the counts are unavailable — it never fails for want of a scope.
+      - name: Generate
+        env:
+          GH_TOKEN: ${{ secrets.DASHBOARD_TOKEN || secrets.GITHUB_TOKEN }}
+          DASHBOARD_OWNER: ${{ github.repository_owner }}
+        run: python3 scripts/build_dashboard.py
+
+      - uses: actions/upload-pages-artifact@v4
+        with:
+          path: .
+
+      - id: deploy
+        uses: actions/deploy-pages@v4
