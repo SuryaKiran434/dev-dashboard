@@ -48,6 +48,18 @@ for r in have_alerts:
         sev_tot[k] += v
 fix_hours = [h for r in have_alerts for h in r["alerts"]["fix_hours"]]
 
+have_cq = [r for r in REPOS if r.get("codeql") is not None]
+cq_tot = defaultdict(int)
+for r in have_cq:
+    for k, v in r["codeql"]["buckets"].items():
+        cq_tot[k] += v
+cq_rules = defaultdict(int)
+for r in have_cq:
+    for rule, n in r["codeql"]["top"]:
+        cq_rules[rule] += n
+cq_top = sorted(cq_rules.items(), key=lambda x: -x[1])[:6]
+cq_pending = [r["name"] for r in REPOS if r.get("codeql") is None and r["name"] != OWNER]
+
 weeks = [(NOW - timedelta(days=7 * i)).date() for i in range(11, -1, -1)]
 wk_open = [sum(1 for t in opened if (NOW.date() - t.date()).days // 7 == 11 - i) for i in range(12)]
 wk_merge = [sum(1 for t in merged if (NOW.date() - t.date()).days // 7 == 11 - i) for i in range(12)]
@@ -203,6 +215,29 @@ if _te:
     except Exception:
         pass
 
+def _hbar(label, val, top, cls, href=None):
+    w = (val / top * 100) if top else 0
+    name = f'<a href="{href}">{E(label)}</a>' if href else E(label)
+    return (f'<div class="hb"><span class="hbl mono">{name}</span>'
+            f'<span class="hbt"><i class="{cls}" style="width:{w:.1f}%"></i></span>'
+            f'<span class="hbv num mono">{val}</span></div>')
+
+_cq_sorted = sorted(have_cq, key=lambda r: (-r["codeql"]["buckets"].get("error", 0), -r["codeql"]["total"]))
+_cq_max = max([r["codeql"]["total"] for r in _cq_sorted] + [1])
+cq_repo_rows = "".join(
+    _hbar(r["name"], r["codeql"]["total"], _cq_max,
+          "bad" if r["codeql"]["buckets"].get("error") else "warn",
+          f'https://github.com/{OWNER}/{r["name"]}/security/code-scanning')
+    for r in _cq_sorted if r["codeql"]["total"]) or '<p class="empty">No open findings.</p>'
+
+_r_max = max([n for _, n in cq_top] + [1])
+cq_rule_rows = "".join(_hbar(rule, n, _r_max, "warn") for rule, n in cq_top) \
+               or '<p class="empty">No findings to rank.</p>'
+
+cq_pending_note = (f'<p class="note">Awaiting first analysis: <b>{", ".join(map(E, cq_pending))}</b>. '
+                   f'CodeQL default setup was just enabled — findings appear after the first scan runs.</p>'
+                   ) if cq_pending else ""
+
 C1L, C2L = "#2a78d6", "#eb6834"
 HTML = f"""<!doctype html>
 <html lang="en"><head><meta charset="utf-8">
@@ -256,6 +291,12 @@ a{{color:var(--accent);text-decoration:none}}a:hover{{text-decoration:underline}
 .sev{{display:inline-block;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;padding:1px 5px;border-radius:4px;margin-left:3px}}
 .sev.critical,.sev.high{{background:var(--critbg);color:var(--critical)}}
 .sev.medium{{background:var(--warnbg);color:var(--warning)}}.sev.low{{background:var(--mutebg);color:var(--mute)}}
+.hb{{display:grid;grid-template-columns:1fr 96px 30px;gap:9px;align-items:center;padding:4px 0;font-size:12.5px}}
+.hbl{{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}}
+.hbt{{background:var(--mutebg);border-radius:3px;height:8px;overflow:hidden;display:block}}
+.hbt i{{display:block;height:8px;border-radius:3px}}
+.hbt i.bad{{background:var(--critical)}}.hbt i.warn{{background:var(--warning)}}
+.hbv{{text-align:right;color:var(--ink3)}}
 .spark{{width:62px;height:16px;display:block}}
 .note{{font-size:12.5px;color:var(--ink3);margin:10px 0 0}}
 code{{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11.5px;background:var(--mutebg);padding:1px 4px;border-radius:3px}}
@@ -309,7 +350,22 @@ footer{{margin-top:36px;padding-top:14px;border-top:1px solid var(--line);font-s
 <div class="scroll"><table><thead><tr><th>Repo</th><th>Language</th><th class="num">Open</th><th class="num">Opened</th><th class="num">Merged</th><th class="num">Lead</th><th class="num">Fail&nbsp;%</th><th>CI</th><th class="num">Alerts</th><th>12&nbsp;wk</th><th class="num">Pushed</th></tr></thead><tbody>{"".join(repo_row(r) for r in sorted(REPOS, key=attention))}</tbody></table></div>
 
 <h2>Code quality</h2>
-<div class="panel"><p class="cap" style="margin:0">GitHub exposes no code-quality API, so this section stays empty until an analyser reports in. Wiring SonarQube (or CodeQL, which is free for public repositories) will populate maintainability, duplication and coverage here. Lint runs today as a non-blocking CI step in two repositories; its results are not yet collected.</p></div>
+<p class="cap">CodeQL static analysis, enabled on every repository with analysable code. Severity uses CodeQL's own levels; findings are advisory, not gates.</p>
+<div class="tiles">
+  <div class="tile"><b>{sum(cq_tot.values())}</b><span>Open findings</span><em>across {len(have_cq)} repos</em></div>
+  <div class="tile"><b>{cq_tot.get('error',0)}</b><span>Error</span><em>highest severity</em></div>
+  <div class="tile"><b>{cq_tot.get('warning',0)}</b><span>Warning</span></div>
+  <div class="tile"><b>{cq_tot.get('note',0)}</b><span>Note</span></div>
+</div>
+<div class="two" style="margin-top:14px">
+  <div class="panel"><h2 style="margin-top:0">Findings by repository</h2>
+    <p class="cap">Error-level first.</p>
+    {cq_repo_rows}</div>
+  <div class="panel"><h2 style="margin-top:0">Most common findings</h2>
+    <p class="cap">The rule triggering most often across all repos.</p>
+    {cq_rule_rows}</div>
+</div>
+{cq_pending_note}
 
 {tok_note}
 {alerts_note}

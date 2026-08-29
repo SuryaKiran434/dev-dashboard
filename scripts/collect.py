@@ -63,7 +63,8 @@ def gh_cursor(path, per_page=100, cap=1000):
     """Cursor-paginated GET (Dependabot alerts). This endpoint rejects ?page=
     with 400 and instead advances via an `after` cursor in the Link header."""
     import re as _re
-    out, url = [], f"{API}{path}?per_page={per_page}"
+    sep = "&" if "?" in path else "?"
+    out, url = [], f"{API}{path}{sep}per_page={per_page}"
     while url and len(out) < cap:
         req = urllib.request.Request(url, headers={
             "Accept": "application/vnd.github+json",
@@ -169,6 +170,25 @@ def collect_repo(r):
                        "fixed_by_month": dict(fixed_m), "fix_hours": fix_hours,
                        "total": len(alerts or []),
                        "truncated": False}
+    # ---- code scanning (CodeQL) ----------------------------------------
+    # 404 = default setup not configured / no analysis yet; 403 = disabled.
+    # Either way this is "nothing to report", not a build failure.
+    scan, serr = gh_cursor(f"/repos/{OWNER}/{name}/code-scanning/alerts?state=open")
+    if serr:
+        d["codeql"] = None
+    else:
+        buckets = {"error": 0, "warning": 0, "note": 0}
+        rules = defaultdict(int)
+        for a in (scan or []):
+            sev = (a.get("rule") or {}).get("security_severity_level") \
+                  or (a.get("rule") or {}).get("severity") or "note"
+            sev = sev.lower()
+            key = "error" if sev in ("critical", "high", "error") else \
+                  "warning" if sev in ("medium", "moderate", "warning") else "note"
+            buckets[key] += 1
+            rules[(a.get("rule") or {}).get("description", "?")[:70]] += 1
+        d["codeql"] = {"buckets": buckets, "total": len(scan or []),
+                       "top": sorted(rules.items(), key=lambda x: -x[1])[:5]}
     return d
 
 
