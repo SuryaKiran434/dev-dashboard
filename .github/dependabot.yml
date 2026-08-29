@@ -1,0 +1,12 @@
+version: 2
+
+updates:
+  # This repo's scripts use only the Python standard library, so there is no
+  # requirements.txt to watch. Actions are the only moving dependency.
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    # Action majors ARE taken: GitHub deprecates old action runtimes
+    # (v4/v5 tags now force onto Node 24), so these need to move.
