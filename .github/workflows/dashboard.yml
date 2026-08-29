@@ -35,11 +35,15 @@ jobs:
       # DASHBOARD_TOKEN (a PAT with repo + security_events) enables the
       # Dependabot alert columns. Without it the build still succeeds and the
       # page says the counts are unavailable — it never fails for want of a scope.
-      - name: Generate
+      - name: Collect metrics
         env:
           GH_TOKEN: ${{ secrets.DASHBOARD_TOKEN || secrets.GITHUB_TOKEN }}
           DASHBOARD_OWNER: ${{ github.repository_owner }}
-        run: python3 scripts/build_dashboard.py
+          WINDOW_DAYS: "90"
+        run: python3 scripts/collect.py
+
+      - name: Render page
+        run: python3 scripts/render.py
 
       - uses: actions/upload-pages-artifact@v4
         with:
