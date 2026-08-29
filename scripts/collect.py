@@ -208,6 +208,29 @@ def collect_repo(r):
             rules[(a.get("rule") or {}).get("description", "?")[:70]] += 1
         d["codeql"] = {"buckets": buckets, "total": len(scan or []),
                        "top": sorted(rules.items(), key=lambda x: -x[1])[:5]}
+    # ---- SonarCloud ------------------------------------------------------
+    # Public projects answer unauthenticated, so this needs no extra secret.
+    d["sonar"] = None
+    try:
+        base = "https://sonarcloud.io/api"
+        key = f"{OWNER}_{name}"
+        req = urllib.request.Request(
+            f"{base}/measures/component?component={key}&metricKeys="
+            "coverage,ncloc,bugs,vulnerabilities,code_smells,duplicated_lines_density,"
+            "sqale_index,security_rating,reliability_rating,sqale_rating",
+            headers={"User-Agent": "dev-dashboard"})
+        with urllib.request.urlopen(req, timeout=20) as r:
+            ms = {m["metric"]: m.get("value") for m in
+                  json.load(r)["component"].get("measures", [])}
+        req2 = urllib.request.Request(
+            f"{base}/qualitygates/project_status?projectKey={key}",
+            headers={"User-Agent": "dev-dashboard"})
+        with urllib.request.urlopen(req2, timeout=20) as r:
+            gate = json.load(r)["projectStatus"]["status"]
+        d["sonar"] = {"measures": ms, "gate": gate}
+    except Exception:
+        pass  # project missing or Sonar unreachable — panel says so
+
     return d
 
 

@@ -431,23 +431,58 @@ function paintTiles(host,rows){
 }
 
 function paintCQ(){
-  const rs=repos().filter(r=>r.codeql);
-  const tot={error:0,warning:0,note:0}; const rules={};
-  rs.forEach(r=>{ for(const k in r.codeql.buckets) tot[k]+=r.codeql.buckets[k];
-    r.codeql.top.forEach(([n,c])=>rules[n]=(rules[n]||0)+c); });
-  paintTiles($("#cq"),[
-    ["Open findings",Object.values(tot).reduce((a,b)=>a+b,0),`across ${rs.length} repos`,null],
-    ["Error",tot.error,"highest severity",null],
-    ["Warning",tot.warning,"",null],["Note",tot.note,"",null]]);
-  const byRepo=rs.filter(r=>r.codeql.total).sort((a,b)=>
-    (b.codeql.buckets.error||0)-(a.codeql.buckets.error||0)||b.codeql.total-a.codeql.total);
-  hbars($("#cqRepo"),byRepo.map(r=>[r.name,r.codeql.total,
-    r.codeql.buckets.error?"bad":"warn",`https://github.com/${OWNER}/${r.name}/security/code-scanning`]));
-  hbars($("#cqRule"),Object.entries(rules).sort((a,b)=>b[1]-a[1]).slice(0,6)
-    .map(([n,c])=>[n,c,"warn",null]));
-  const pending=repos().filter(r=>!r.codeql&&r.name!==OWNER).map(r=>r.name);
-  $("#cqNote").textContent = pending.length
-    ? "Awaiting first analysis: "+pending.join(", ")+". Findings appear after the next scan." : "";
+  const rs=repos().filter(r=>r.sonar&&r.sonar.measures);
+  const num=(r,k)=>parseFloat((r.sonar.measures[k]??"0"))||0;
+  const vuln=rs.reduce((a,r)=>a+num(r,"vulnerabilities"),0);
+  const bugs=rs.reduce((a,r)=>a+num(r,"bugs"),0);
+  const smell=rs.reduce((a,r)=>a+num(r,"code_smells"),0);
+  const debt=rs.reduce((a,r)=>a+num(r,"sqale_index"),0);
+  const ncloc=rs.reduce((a,r)=>a+num(r,"ncloc"),0);
+  // lines-weighted, not a mean of percentages — a 6k-line repo should not
+  // count the same as a 600-line one
+  const covRs=rs.filter(r=>r.sonar.measures.coverage!=null);
+  const covW=covRs.reduce((a,r)=>a+num(r,"coverage")*num(r,"ncloc"),0);
+  const covN=covRs.reduce((a,r)=>a+num(r,"ncloc"),0);
+  const failing=rs.filter(r=>r.sonar.gate==="ERROR").length;
+  const cq=repos().filter(r=>r.codeql).reduce((a,r)=>a+r.codeql.total,0);
+  paintTiles($("#sq"),[
+    ["Quality gates",`${rs.length-failing}/${rs.length}`,"passing",null],
+    ["Coverage",(covN?covW/covN:0).toFixed(1)+"%","weighted by lines",null],
+    ["Vulnerabilities",vuln,"all code, not just new",null],
+    ["Bugs",bugs,"",null],
+    ["Code smells",smell,`${Math.round(debt/60)}h estimated debt`,null],
+    ["CodeQL",cq,"open security alerts",null],
+  ]);
+
+  sortable($("#tSonar"),rs.map(r=>({...r,
+    _g:r.sonar.gate,_c:r.sonar.measures.coverage==null?null:num(r,"coverage"),
+    _n:num(r,"ncloc"),_v:num(r,"vulnerabilities"),_b:num(r,"bugs"),
+    _s:num(r,"code_smells"),_d:num(r,"duplicated_lines_density"),
+    _t:num(r,"sqale_index"),_q:r.codeql?r.codeql.total:null})),[
+    {key:"name",label:"Repo",cls:"mono",val:r=>r.name,render:r=>link(r.name,`https://sonarcloud.io/project/overview?id=${OWNER}_${r.name}`)},
+    {key:"gate",label:"Gate",val:r=>r._g==="ERROR"?0:r._g==="OK"?2:1,render:r=>{
+      const m={OK:["good","✓","passing"],ERROR:["critical","✕","failing"]}[r._g]||["mute","–","no baseline"];
+      const s=el("span","pill "+m[0]); s.appendChild(el("b",null,m[1]));
+      s.appendChild(document.createTextNode(m[2])); return s;}},
+    {key:"cov",label:"Coverage",cls:"num mono",val:r=>r._c??-1,render:r=>r._c==null?el("span","dim","—"):r._c.toFixed(1)+"%"},
+    {key:"ncloc",label:"Lines",cls:"num mono dim",val:r=>r._n,render:r=>r._n.toLocaleString()},
+    {key:"vuln",label:"Vuln",cls:"num",val:r=>r._v,render:r=>r._v?el("span","sev h",r._v):el("span","dim","0")},
+    {key:"bugs",label:"Bugs",cls:"num",val:r=>r._b,render:r=>r._b?el("span","sev m",r._b):el("span","dim","0")},
+    {key:"smells",label:"Smells",cls:"num mono dim",val:r=>r._s,render:r=>String(r._s)},
+    {key:"dup",label:"Dup %",cls:"num mono dim",val:r=>r._d,render:r=>r._d.toFixed(1)},
+    {key:"debt",label:"Debt",cls:"num mono dim",val:r=>r._t,render:r=>r._t<60?"—":Math.round(r._t/60)+"h"},
+    {key:"codeql",label:"CodeQL",cls:"num",val:r=>r._q??-1,render:r=>r._q==null?el("span","dim","—"):String(r._q)},
+  ],"vuln");
+
+  hbars($("#sqCov"),rs.filter(r=>r.sonar.measures.coverage!=null)
+    .sort((a,b)=>num(b,"coverage")-num(a,"coverage"))
+    .map(r=>[r.name,+num(r,"coverage").toFixed(1),
+      num(r,"coverage")<40?"bad":num(r,"coverage")<70?"warn":"acc",
+      `https://sonarcloud.io/component_measures?id=${OWNER}_${r.name}&metric=coverage`]));
+  hbars($("#sqIss"),rs.map(r=>[r.name,num(r,"vulnerabilities")+num(r,"bugs"),
+      num(r,"vulnerabilities")?"bad":"warn",
+      `https://sonarcloud.io/project/issues?id=${OWNER}_${r.name}&resolved=false`])
+    .filter(x=>x[1]>0).sort((a,b)=>b[1]-a[1]));
 }
 function hbars(host,rows){
   host.innerHTML="";
@@ -541,11 +576,12 @@ HTML = f"""<!doctype html>
 <div class="scroll"><table id="tRepo"></table></div>
 
 <h2>Code quality</h2>
-<p class="cap">CodeQL static analysis, enabled on every repository with analysable code. Findings are advisory, not merge gates.</p>
-<div class="tiles" id="cq"></div>
+<p class="cap">SonarCloud static analysis with imported test coverage, plus CodeQL security scanning. Quality gates judge <em>new</em> code only — a repo can pass its gate while carrying findings on existing code.</p>
+<div class="tiles" id="sq"></div>
+<div class="scroll" style="margin-top:12px"><table id="tSonar"></table></div>
 <div class="two">
-  <div class="panel"><h2 style="margin:0 0 2px">By repository</h2><p class="cap">Error-level first.</p><div id="cqRepo"></div></div>
-  <div class="panel"><h2 style="margin:0 0 2px">Most common rules</h2><p class="cap">Triggering most often across all repos.</p><div id="cqRule"></div></div>
+  <div class="panel"><h2 style="margin:0 0 2px">Coverage by repository</h2><p class="cap">Imported from CI into SonarCloud.</p><div id="sqCov"></div></div>
+  <div class="panel"><h2 style="margin:0 0 2px">Open findings</h2><p class="cap">Vulnerabilities plus bugs, worst first.</p><div id="sqIss"></div></div>
 </div>
 <p class="note" id="cqNote"></p>
 {tok}
