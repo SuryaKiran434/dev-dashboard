@@ -96,6 +96,43 @@ def legend(names, colors):
         f'<span><i style="background:{c}"></i>{E(n)}</span>' for n, c in zip(names, colors)) + "</div>"
 
 
+
+def spark(vals, w=62, h=16):
+    """Thin activity bars. Sparklines carry shape, not exact values — the row's
+    numeric columns already give the precise counts."""
+    if not any(vals):
+        return '<span class="dim" style="font-size:11px">—</span>'
+    top = max(vals)
+    n = len(vals)
+    bw = (w - (n - 1)) / n
+    out = [f'<svg viewBox="0 0 {w} {h}" class="spark" role="img" aria-label="activity trend">']
+    for i, v in enumerate(vals):
+        bh = max((v / top) * h, 1) if v else 0
+        if bh:
+            x = i * (bw + 1)
+            out.append(f'<rect x="{x:.1f}" y="{h-bh:.1f}" width="{bw:.1f}" height="{bh:.1f}" rx="1" fill="var(--s1)"/>')
+    out.append("</svg>")
+    return "".join(out)
+
+
+def weekly(repo, key="opened_recent", n=12):
+    out = [0] * n
+    for t in repo[key]:
+        d = (NOW.date() - ts(t).date()).days // 7
+        if 0 <= d < n:
+            out[n - 1 - d] += 1
+    return out
+
+
+def attention(r):
+    """Sort key: things needing action first, then most active."""
+    a = r["alerts"] or {"sev": {}}
+    bad = 2 if r["ci_latest"] == "failure" else 0
+    bad += min(a["sev"].get("critical", 0) + a["sev"].get("high", 0), 5)
+    bad += 1 if r["open_prs"] else 0
+    return (-bad, -len(r["opened_recent"]))
+
+
 STATUS = {"success": ("good", "✓", "passing"), "failure": ("critical", "✕", "failing"),
           "cancelled": ("warning", "•", "cancelled"), "in_progress": ("warning", "◐", "running"),
           "queued": ("warning", "◔", "queued"), "none": ("mute", "–", "no CI")}
@@ -139,8 +176,16 @@ def repo_row(r):
             f'<td class="num mono">{fr}</td>'
             f'<td>{ci_pill(r["ci_latest"])}</td>'
             f'<td class="num">{sev}</td>'
+            f'<td>{spark(weekly(r))}</td>'
             f'<td class="num mono dim">{age(r["pushed"])}</td></tr>')
 
+
+_missing = [r["name"] for r in REPOS if r["alerts"] is None]
+alerts_note = (
+    '<p class="note">No alert data for <b>' + ", ".join(map(E, _missing)) +
+    '</b> — Dependabot alerts are switched off on those repositories '
+    '(the API returns 403 even to a fully-scoped token). Enable them under '
+    'Settings → Code security to include them here.</p>') if _missing else ""
 
 tok_note = ""
 _te = D.get("token_expiry")
@@ -163,8 +208,7 @@ HTML = f"""<!doctype html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>{E(OWNER)} — engineering dashboard</title>
-<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<meta name="description" content="Open PRs, delivery metrics and security alerts across every {E(OWNER)} repository.">
 <style>
 :root{{color-scheme:light;--bg:#F4F6F8;--card:#fcfcfb;--ink:#0b0b0b;--ink2:#52514e;--ink3:#8b8a85;
 --line:#E2E6EC;--accent:#2a78d6;--s1:{C1L};--s2:{C2L};
@@ -178,7 +222,7 @@ HTML = f"""<!doctype html>
 --ink3:#8a8a84;--line:#2a2b30;--accent:#3987e5;--s1:#3987e5;--s2:#d95926;--goodbg:#16301a;
 --warnbg:#2E2617;--critbg:#301A1A;--mutebg:#22242A;--grid:#26282e}}
 *{{box-sizing:border-box}}
-body{{margin:0;background:var(--bg);color:var(--ink);font:15px/1.55 "Inter Tight",-apple-system,system-ui,sans-serif}}
+body{{margin:0;background:var(--bg);color:var(--ink);font:15px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}}
 .wrap{{max-width:1180px;margin:0 auto;padding:32px 22px 72px}}
 h1{{font-size:1.45rem;font-weight:700;letter-spacing:-.02em;margin:0 0 3px}}
 .sub{{color:var(--ink2);font-size:13.5px;margin:0 0 24px}}
@@ -192,7 +236,7 @@ h2{{font-size:.95rem;font-weight:600;margin:32px 0 4px;letter-spacing:-.01em}}
 .panel{{background:var(--card);border:1px solid var(--line);border-radius:7px;padding:16px 18px}}
 .chart{{width:100%;height:auto;display:block}}
 .grid{{stroke:var(--grid);stroke-width:1}}
-.ax{{fill:var(--ink3);font-size:10px;font-family:"JetBrains Mono",monospace}}
+.ax{{fill:var(--ink3);font-size:10px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace}}
 .legend{{display:flex;gap:15px;margin-top:9px;font-size:12px;color:var(--ink2)}}
 .legend i{{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:5px}}
 table{{width:100%;border-collapse:collapse;background:var(--card);border:1px solid var(--line);border-radius:7px;overflow:hidden}}
@@ -200,7 +244,7 @@ th{{text-align:left;font-size:10.5px;text-transform:uppercase;letter-spacing:.07
 font-weight:600;padding:9px 12px;border-bottom:1px solid var(--line);background:var(--bg)}}
 td{{padding:8px 12px;border-bottom:1px solid var(--line);font-size:13.5px}}
 tr:last-child td{{border-bottom:0}}
-.mono{{font-family:"JetBrains Mono",ui-monospace,monospace;font-size:12.5px}}
+.mono{{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:12.5px}}
 .num{{text-align:right;font-variant-numeric:tabular-nums}}
 .dim{{color:var(--ink3)}}
 .empty{{text-align:center;color:var(--ink3);padding:24px}}
@@ -209,11 +253,12 @@ a{{color:var(--accent);text-decoration:none}}a:hover{{text-decoration:underline}
 .pill b{{font-size:10px}}
 .pill.good{{background:var(--goodbg);color:var(--good)}}.pill.critical{{background:var(--critbg);color:var(--critical)}}
 .pill.warning{{background:var(--warnbg);color:var(--warning)}}.pill.mute{{background:var(--mutebg);color:var(--mute)}}
-.sev{{display:inline-block;font-family:"JetBrains Mono",monospace;font-size:11px;padding:1px 5px;border-radius:4px;margin-left:3px}}
+.sev{{display:inline-block;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;padding:1px 5px;border-radius:4px;margin-left:3px}}
 .sev.critical,.sev.high{{background:var(--critbg);color:var(--critical)}}
 .sev.medium{{background:var(--warnbg);color:var(--warning)}}.sev.low{{background:var(--mutebg);color:var(--mute)}}
+.spark{{width:62px;height:16px;display:block}}
 .note{{font-size:12.5px;color:var(--ink3);margin:10px 0 0}}
-code{{font-family:"JetBrains Mono",monospace;font-size:11.5px;background:var(--mutebg);padding:1px 4px;border-radius:3px}}
+code{{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11.5px;background:var(--mutebg);padding:1px 4px;border-radius:3px}}
 footer{{margin-top:36px;padding-top:14px;border-top:1px solid var(--line);font-size:12px;color:var(--ink3)}}
 .two{{display:grid;grid-template-columns:1fr 1fr;gap:14px}}
 @media(max-width:820px){{.two{{grid-template-columns:1fr}}}}
@@ -260,13 +305,14 @@ footer{{margin-top:36px;padding-top:14px;border-top:1px solid var(--line);font-s
 <div class="scroll"><table><thead><tr><th>Repo</th><th>Workflow</th><th>Caused by</th><th class="num">When</th></tr></thead><tbody>{fail_rows}</tbody></table></div>
 
 <h2>Per-repository</h2>
-<div class="scroll"><table><thead><tr><th>Repo</th><th>Language</th><th class="num">Open</th><th class="num">Opened</th><th class="num">Merged</th><th class="num">Lead</th><th class="num">Fail&nbsp;%</th><th>CI</th><th class="num">Alerts</th><th class="num">Pushed</th></tr></thead><tbody>{"".join(repo_row(r) for r in REPOS)}</tbody></table></div>
+<p class="cap">Ordered by what needs attention — failing CI, then severe alerts, then open PRs — not alphabetically.</p>
+<div class="scroll"><table><thead><tr><th>Repo</th><th>Language</th><th class="num">Open</th><th class="num">Opened</th><th class="num">Merged</th><th class="num">Lead</th><th class="num">Fail&nbsp;%</th><th>CI</th><th class="num">Alerts</th><th>12&nbsp;wk</th><th class="num">Pushed</th></tr></thead><tbody>{"".join(repo_row(r) for r in sorted(REPOS, key=attention))}</tbody></table></div>
 
 <h2>Code quality</h2>
 <div class="panel"><p class="cap" style="margin:0">GitHub exposes no code-quality API, so this section stays empty until an analyser reports in. Wiring SonarQube (or CodeQL, which is free for public repositories) will populate maintainability, duplication and coverage here. Lint runs today as a non-blocking CI step in two repositories; its results are not yet collected.</p></div>
 
 {tok_note}
-{'<p class="note">Dependabot alert data is unavailable for some repositories — the build token lacks <code>security_events</code>. Add a PAT as the <code>DASHBOARD_TOKEN</code> secret.</p>' if alerts_missing else ''}
+{alerts_note}
 <footer>Rebuilt on a schedule by GitHub Actions and published as a Pages artifact — no commits, no notifications. New repositories appear with no configuration.</footer>
 </div></body></html>"""
 
