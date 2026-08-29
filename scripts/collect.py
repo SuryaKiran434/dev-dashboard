@@ -14,8 +14,9 @@ from datetime import datetime, timezone, timedelta
 OWNER = os.environ.get("DASHBOARD_OWNER", "SuryaKiran434")
 TOKEN = os.environ.get("GH_TOKEN") or os.environ.get("GITHUB_TOKEN") or ""
 API = "https://api.github.com"
-WINDOW_DAYS = int(os.environ.get("WINDOW_DAYS", "90"))
+WINDOW_DAYS = int(os.environ.get("WINDOW_DAYS", "180"))
 NOW = datetime.now(timezone.utc)
+EPOCH = datetime(2020, 1, 1, tzinfo=timezone.utc)
 TOKEN_EXPIRY = []  # populated from the API response header
 SINCE = NOW - timedelta(days=WINDOW_DAYS)
 
@@ -89,7 +90,7 @@ def collect_repo(r):
     """Everything for one repo. Never raises — partial data is fine."""
     name, branch = r["name"], r["default_branch"]
     d = {"name": name, "url": r["html_url"], "lang": r.get("language") or "—",
-         "pushed": r["pushed_at"], "default_branch": branch}
+         "pushed_h": int((_ts(r["pushed_at"]) - EPOCH).total_seconds() // 3600)}
 
     # ---- pull requests -------------------------------------------------
     prs, _ = gh(f"/repos/{OWNER}/{name}/pulls",
@@ -102,8 +103,8 @@ def collect_repo(r):
         created, mergedat = _ts(p["created_at"]), _ts(p.get("merged_at"))
         if p["state"] == "open":
             open_prs.append({"num": p["number"], "title": p["title"], "url": p["html_url"],
-                             "author": p["user"]["login"], "created": p["created_at"],
-                             "draft": p.get("draft", False)})
+                             "author": p["user"]["login"], "draft": p.get("draft", False),
+                             "created_h": int((created - EPOCH).total_seconds() // 3600)})
         if created >= SINCE:
             opened_recent.append(created)
         if mergedat and mergedat >= SINCE:
@@ -111,9 +112,18 @@ def collect_repo(r):
             lead_times.append((mergedat - created).total_seconds() / 3600.0)
         if p.get("merge_commit_sha"):
             sha_to_pr[p["merge_commit_sha"]] = {"num": p["number"], "title": p["title"], "url": p["html_url"]}
-    d.update(open_prs=open_prs, opened_recent=[t.isoformat() for t in opened_recent],
-             merged_recent=[t.isoformat() for t in merged],
-             lead_hours=lead_times)
+    # Compact event log: [created_epoch_days, merged_epoch_days|-1] per PR.
+    # Enough to recompute counts and lead time for ANY window client-side,
+    # at a fraction of the bytes of full PR objects.
+    ev = []
+    for p in prs:
+        c = _ts(p["created_at"])
+        if c < SINCE:
+            continue
+        m = _ts(p.get("merged_at"))
+        ev.append([int((c - EPOCH).total_seconds() // 3600),
+                   int((m - EPOCH).total_seconds() // 3600) if m else -1])
+    d.update(open_prs=open_prs, pr_events=ev)
 
     # ---- workflow runs on the default branch ---------------------------
     runs, _ = gh(f"/repos/{OWNER}/{name}/actions/runs",
@@ -135,15 +145,18 @@ def collect_repo(r):
             pr = sha_to_pr.get(run["head_sha"])
             failing_runs.append({
                 "repo": name, "wf": run["name"], "url": run["html_url"],
-                "at": run["created_at"], "sha": run["head_sha"][:7],
+                "at_h": int((_ts(run["created_at"]) - EPOCH).total_seconds() // 3600),
+                "sha": run["head_sha"][:7],
                 "pr": pr, "msg": (run.get("head_commit") or {}).get("message", "").split("\n")[0][:70],
             })
         elif run["conclusion"] == "success" and open_fail is not None:
             restore_hours.append((_ts(run["created_at"]) - open_fail).total_seconds() / 3600.0)
             open_fail = None
     latest = next((x["conclusion"] or x["status"] for x in reversed(runs)), "none")
-    d.update(ci_latest=latest, runs_total=total, runs_failed=fails,
-             restore_hours=restore_hours, failing_runs=failing_runs[-8:])
+    run_ev = [[int((_ts(x["created_at"]) - EPOCH).total_seconds() // 3600),
+               1 if x["conclusion"] == "success" else (0 if x["conclusion"] == "failure" else 2)]
+              for x in runs if x["status"] == "completed"]
+    d.update(ci_latest=latest, run_events=run_ev, failing_runs=failing_runs[-25:])
 
     # ---- dependabot alerts ---------------------------------------------
     # NOTE: this endpoint uses cursor pagination (before/after), NOT ?page —
@@ -166,10 +179,16 @@ def collect_repo(r):
             if a["state"] == "open":
                 s = a["security_advisory"]["severity"]
                 sev[s] = sev.get(s, 0) + 1
-        d["alerts"] = {"sev": sev, "opened_by_month": dict(opened_m),
-                       "fixed_by_month": dict(fixed_m), "fix_hours": fix_hours,
-                       "total": len(alerts or []),
-                       "truncated": False}
+        aev = []
+        for a in (alerts or []):
+            c = _ts(a["created_at"])
+            closed = _ts(a.get("fixed_at")) or _ts(a.get("dismissed_at"))
+            aev.append([int((c - EPOCH).total_seconds() // 3600),
+                        int((closed - EPOCH).total_seconds() // 3600) if closed else -1,
+                        {"critical": 3, "high": 2, "medium": 1, "low": 0}.get(
+                            a["security_advisory"]["severity"], 0),
+                        1 if a["state"] == "open" else 0])
+        d["alerts"] = {"events": aev, "total": len(alerts or [])}
     # ---- code scanning (CodeQL) ----------------------------------------
     # 404 = default setup not configured / no analysis yet; 403 = disabled.
     # Either way this is "nothing to report", not a build failure.
@@ -208,6 +227,7 @@ def main():
         sys.exit(1)
 
     data = {"owner": OWNER, "generated": NOW.isoformat(), "window_days": WINDOW_DAYS,
+            "epoch_hours": int((NOW - EPOCH).total_seconds() // 3600),
             "token_expiry": TOKEN_EXPIRY[0] if TOKEN_EXPIRY else None,
             "repos": [collect_repo(r) for r in repos]}
     out = os.path.join(os.path.dirname(__file__), "..", "data.json")
