@@ -39,10 +39,31 @@ font:16px/1.55 "IBM Plex Sans","Segoe UI",-apple-system,BlinkMacSystemFont,Robot
 -webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
 .wrap{max-width:1280px;margin:0 auto;padding:28px 22px 76px}
 header{display:flex;align-items:baseline;gap:13px;flex-wrap:wrap;margin-bottom:5px}
-.rebuild{margin-left:auto;align-self:center;font-size:13.5px;font-weight:500;
-text-decoration:none;color:var(--ink2);border:1px solid var(--line);border-radius:7px;
+.rbwrap{margin-left:auto;align-self:center;display:flex;align-items:center;gap:9px}
+.rebuild{font:inherit;font-size:13.5px;font-weight:500;cursor:pointer;
+color:var(--ink2);background:var(--card);border:1px solid var(--line);border-radius:7px;
 padding:5px 11px;white-space:nowrap;transition:border-color .15s,color .15s,background .15s}
-.rebuild:hover,.rebuild:focus-visible{color:var(--ink);border-color:var(--ink3);background:var(--mutebg)}
+.rebuild:hover:not([disabled]),.rebuild:focus-visible{color:var(--ink);border-color:var(--ink3);background:var(--mutebg)}
+.rebuild[disabled]{cursor:progress;opacity:.7}
+.rbkey{font:inherit;font-size:12.5px;cursor:pointer;color:var(--ink3);background:none;
+border:0;padding:2px 3px;text-decoration:underline;text-underline-offset:2px}
+.rbkey:hover{color:var(--ink2)}
+.rbstat{font-size:13px;color:var(--ink3);white-space:nowrap;font-variant-numeric:tabular-nums}
+.rbstat.bad{color:var(--critical)}
+.rbstat a{color:inherit}
+.pat{background:var(--card);border:1px solid var(--line);border-radius:10px;
+padding:15px 17px;margin:0 0 18px;box-shadow:var(--shadow);max-width:660px}
+.pat p{margin:0 0 11px;font-size:14px;color:var(--ink2);line-height:1.5}
+.pat p:last-child{margin-bottom:0}
+.pat code{font-family:"IBM Plex Mono",ui-monospace,Menlo,monospace;font-size:12.5px;
+background:var(--mutebg);padding:1px 5px;border-radius:4px}
+.patrow{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:11px}
+.patrow input{flex:1 1 260px;font:inherit;font-size:13.5px;padding:6px 10px;
+border:1px solid var(--line);border-radius:7px;background:var(--card2);color:var(--ink)}
+.patrow button{font:inherit;font-size:13.5px;font-weight:500;cursor:pointer;padding:6px 13px;
+border-radius:7px;border:1px solid var(--accent);background:var(--accent);color:#fff}
+.patrow button.ghost{background:none;color:var(--ink2);border-color:var(--line)}
+.patnote{font-size:12.5px!important;color:var(--ink3)!important}
 h1{font-size:1.72rem;font-weight:600;letter-spacing:-.02em;margin:0}
 .sub{color:var(--ink2);font-size:14px;margin:0 0 20px}
 .mono{font-family:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
@@ -565,6 +586,116 @@ sel.addEventListener("change",()=>{ state.repo=sel.value; render(); });
 let qt; $("#q").addEventListener("input",e=>{ clearTimeout(qt);
   qt=setTimeout(()=>{ state.q=e.target.value.trim().toLowerCase(); render(); },120); });
 render();
+
+/* ---------- on-demand rebuild ----------
+   GitHub Pages is static: nothing here can start a workflow without credentials.
+   The only two options are a server holding a secret, or the viewer's own token.
+   We take the second — the token is typed by the user, lives in localStorage,
+   and never touches the repository or the rendered HTML. */
+const RB = {
+  repo: OWNER + "/dev-dashboard",
+  wf: "dashboard.yml",
+  key: "dashboard_pat",
+  busy: false,
+  get token() { try { return localStorage.getItem(RB.key) || ""; } catch (e) { return ""; } },
+  set token(v) { try { v ? localStorage.setItem(RB.key, v) : localStorage.removeItem(RB.key); } catch (e) {} }
+};
+const rbBtn = $("#rebuild"), rbStat = $("#rbstat"), rbForget = $("#rbforget"),
+      patWrap = $("#patwrap"), patIn = $("#pat");
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+let ticker = null;
+function rbLabel(txt, t0) {
+  rbBtn.textContent = txt;
+  clearInterval(ticker);
+  if (t0) { const tick = () => rbSay(Math.round((Date.now()-t0)/1000) + "s");
+            tick(); ticker = setInterval(tick, 1000); }
+}
+function rbSay(txt, bad) { rbStat.textContent = txt || ""; rbStat.className = "rbstat" + (bad ? " bad" : ""); }
+function rbIdle() { RB.busy = false; rbBtn.disabled = false; clearInterval(ticker);
+                    rbBtn.textContent = "Rebuild now"; rbForget.hidden = !RB.token; }
+function showPat(msg) {
+  patWrap.hidden = false; rbSay(msg || "", !!msg);
+  patIn.value = ""; patIn.focus();
+}
+
+async function gh(path, opts) {
+  opts = opts || {};
+  const r = await fetch("https://api.github.com" + path, {
+    method: opts.method || "GET",
+    body: opts.body,
+    // fetch would otherwise label a string body text/plain
+    headers: Object.assign({ "Accept": "application/vnd.github+json",
+               "Authorization": "Bearer " + RB.token,
+               "X-GitHub-Api-Version": "2022-11-28" },
+               opts.body ? { "Content-Type": "application/json" } : {})
+  });
+  if (r.status === 401) { RB.token = ""; throw new Error("Token rejected — create a new one."); }
+  if (r.status === 403) { RB.token = ""; throw new Error("Token lacks Actions: write on this repo."); }
+  if (r.status === 404) { RB.token = ""; throw new Error("Token can't see dev-dashboard — check its repository access."); }
+  if (!r.ok) throw new Error("GitHub returned " + r.status);
+  return r.status === 204 ? null : r.json();
+}
+
+async function rebuild() {
+  if (RB.busy) return;
+  if (!RB.token) { showPat(); return; }
+  patWrap.hidden = true;
+  RB.busy = true; rbBtn.disabled = true; rbForget.hidden = true;
+  const t0 = Date.now();
+  rbLabel("Starting…", t0);
+  try {
+    await gh("/repos/" + RB.repo + "/actions/workflows/" + RB.wf + "/dispatches",
+             { method: "POST", body: JSON.stringify({ ref: "main" }) });
+
+    // The dispatch endpoint returns 204 with no body, so the run has to be
+    // found by its creation time rather than by an id we were handed.
+    let run = null;
+    for (let i = 0; i < 30 && !run; i++) {
+      rbLabel("Queued…", t0);
+      await sleep(2000);
+      const d = await gh("/repos/" + RB.repo + "/actions/workflows/" + RB.wf +
+                         "/runs?event=workflow_dispatch&per_page=5");
+      run = (d.workflow_runs || []).find(x => Date.parse(x.created_at) >= t0 - 20000);
+    }
+    if (!run) throw new Error("Run never appeared — check Actions.");
+
+    while (run.status !== "completed") {
+      rbLabel(run.status === "queued" ? "Queued…" : "Building…", t0);
+      await sleep(3000);
+      run = await gh("/repos/" + RB.repo + "/actions/runs/" + run.id);
+    }
+    clearInterval(ticker);
+
+    if (run.conclusion === "success") {
+      rbLabel("Reloading…"); rbSay("");
+      // The deploy is the last step of the same job, so the run finishing means
+      // the new page is live. The query string defeats the Pages CDN cache.
+      await sleep(1500);
+      location.replace(location.pathname + "?t=" + Date.now());
+      return;
+    }
+    rbSay("", true);
+    rbStat.innerHTML = "Build " + run.conclusion + " — " +
+      '<a href="' + run.html_url + '" target="_blank" rel="noopener">see the run</a>';
+    rbStat.className = "rbstat bad";
+    rbIdle();
+  } catch (e) {
+    rbIdle();
+    if (!RB.token) showPat(e.message); else rbSay(e.message, true);
+  }
+}
+
+rbBtn.addEventListener("click", rebuild);
+rbForget.addEventListener("click", () => { RB.token = ""; rbIdle(); rbSay("Token removed."); });
+$("#patcancel").addEventListener("click", () => { patWrap.hidden = true; rbSay(""); });
+$("#patsave").addEventListener("click", () => {
+  const v = patIn.value.trim();
+  if (!v) { patIn.focus(); return; }
+  RB.token = v; patIn.value = ""; patWrap.hidden = true; rebuild();
+});
+patIn.addEventListener("keydown", e => { if (e.key === "Enter") $("#patsave").click(); });
+rbForget.hidden = !RB.token;
 """
 
 E = html.escape
@@ -599,8 +730,24 @@ HTML = f"""<!doctype html>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
 <style>{CSS}</style></head><body>
 <div class="wrap">
-<header><h1>{E(OWNER)}</h1><span class="chip mono" id="chip"></span><a class="rebuild" href="https://github.com/{E(OWNER)}/dev-dashboard/actions/workflows/dashboard.yml" title="Opens the GitHub Actions workflow — press Run workflow, then reload this page in ~40s">Rebuild now &rarr;</a></header>
+<header><h1>{E(OWNER)}</h1><span class="chip mono" id="chip"></span><span class="rbwrap"><span class="rbstat" id="rbstat" role="status" aria-live="polite"></span><button class="rbkey" id="rbforget" type="button" hidden>Forget token</button><button class="rebuild" id="rebuild" type="button">Rebuild now</button></span></header>
 <p class="sub">Every repository, discovered automatically · rebuilt {E(gen)} · filters apply to everything below</p>
+
+<div class="pat" id="patwrap" hidden>
+  <p><b>One-time setup.</b> Starting a build from this page needs a GitHub token —
+  GitHub Pages is static, so the page has no server of its own to sign the request.</p>
+  <p>Create a <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">fine-grained
+  token</a> scoped to <b>only</b> the <code>dev-dashboard</code> repository, with a single permission:
+  <b>Actions &rarr; Read and write</b>. Nothing else.</p>
+  <div class="patrow">
+    <input type="password" id="pat" placeholder="github_pat_&hellip;" autocomplete="off" spellcheck="false" aria-label="GitHub token">
+    <button type="button" id="patsave">Save &amp; rebuild</button>
+    <button type="button" id="patcancel" class="ghost">Cancel</button>
+  </div>
+  <p class="patnote">The token is kept in this browser only (<code>localStorage</code>) — it is never committed,
+  never rendered into the page, and never sent anywhere but <code>api.github.com</code>. Note that every page under
+  <code>{E(OWNER).lower()}.github.io</code> shares one origin and can read it. Remove it with <b>Forget token</b>.</p>
+</div>
 
 <div class="bar" role="group" aria-label="Filters">
   <div class="seg" id="win" role="group" aria-label="Time range">
@@ -662,7 +809,7 @@ HTML = f"""<!doctype html>
 <p class="note" id="cqNote"></p>
 {tok}
 <footer>Rebuilt hourly by GitHub Actions, published as a Pages artifact — no commits, no notifications.
-GitHub throttles frequent schedules on free public repositories, so hourly is the honest cadence; use <b>Rebuild now</b> at the top of the page (or <code>gh workflow run dashboard.yml -R {E(OWNER)}/dev-dashboard</code>) for an immediate rebuild.
+GitHub throttles frequent schedules on free public repositories, so hourly is the honest cadence; <b>Rebuild now</b> at the top of the page starts one immediately and reloads when it lands (or <code>gh workflow run dashboard.yml -R {E(OWNER)}/dev-dashboard</code>) for an immediate rebuild.
 180 days of events ship inline, so every filter and sort is instant and needs no network. New repositories appear with no configuration.</footer>
 </div>
 <div id="tip" role="status" aria-live="polite"></div>
