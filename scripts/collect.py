@@ -158,9 +158,27 @@ def collect_repo(r):
             restore_hours.append((_ts(run["created_at"]) - open_fail).total_seconds() / 3600.0)
             open_fail = None
     latest = next((x["conclusion"] or x["status"] for x in reversed(runs)), "none")
+    def _elapsed_s(x):
+        st = _ts(x.get("run_started_at") or x["created_at"])
+        en = _ts(x.get("updated_at") or x["created_at"])
+        d = (en - st).total_seconds()
+        return int(d) if 0 <= d < 6 * 3600 else 0   # clamp absurd values
+
     run_ev = [[int((_ts(x["created_at"]) - EPOCH).total_seconds() // 3600),
-               1 if x["conclusion"] == "success" else (0 if x["conclusion"] == "failure" else 2)]
+               1 if x["conclusion"] == "success" else (0 if x["conclusion"] == "failure" else 2),
+               _elapsed_s(x)]
               for x in runs if x["status"] == "completed"]
+
+    # elapsed seconds per workflow, so the page can show which workflow costs most
+    wf_time = {}
+    for x in runs:
+        if x["status"] == "completed":
+            wf_time[x["name"]] = wf_time.get(x["name"], 0) + _elapsed_s(x)
+    d["wf_time"] = wf_time
+    # macOS runners bill at 10x on private repos; irrelevant while public but
+    # worth surfacing, so record which repos use one.
+    d["runner_os"] = "macos" if any("macos" in str(x.get("name", "")).lower()
+                                    for x in runs) or name == "folderlock-mac" else "ubuntu"
 
     # For each failure, find the next SUCCESSFUL run of the SAME workflow. That
     # run's commit is what actually restored the build, so the PR it belongs to

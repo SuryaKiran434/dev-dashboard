@@ -430,6 +430,7 @@ function render(){
     {key:"pushed",label:"Last commit",help:"Time since the most recent push to any branch. Hover the value for the exact timestamp.",cls:"num mono dim",val:r=>-r.pushed_h,render:r=>{const sp=el("span",null,ageH(r.pushed_h)+" ago");sp.title=absTime(r.pushed_h);return sp;}},
   ],"alerts");
 
+  paintRT();
   paintCQ();
   $("#chip").textContent=`${rs.length} repo${rs.length===1?"":"s"} · ${openPRs.length} open PR${openPRs.length===1?"":"s"}`;
 }
@@ -450,6 +451,34 @@ function paintTiles(host,rows){
     if(d){ const s=el("span","delta "+d.c,d.t); b.appendChild(s); }
     t.appendChild(b); t.appendChild(el("span",null,label));
     if(sub) t.appendChild(el("em",null,sub)); host.appendChild(t); });
+}
+
+function paintRT(){
+  const [lo,hi]=cut();
+  let secs=0, runs=0, macSecs=0;
+  const byRepo=[], byWf={};
+  for(const r of repos()){
+    let s=0,n=0;
+    for(const [c,,d] of (r.run_events||[])) if(c>=lo&&c<hi){ s+=(d||0); n++; }
+    if(n){ byRepo.push([r.name,s,r.runner_os]); }
+    secs+=s; runs+=n;
+    if(r.runner_os==="macos") macSecs+=s;
+    for(const [w,t] of Object.entries(r.wf_time||{})) byWf[w]=(byWf[w]||0)+t;
+  }
+  const fmt=x=> x<60?Math.round(x)+"s" : x<3600?(x/60).toFixed(1)+"m" : (x/3600).toFixed(1)+"h";
+  paintTiles($("#rt"),[
+    ["Runner time",fmt(secs),`across ${runs} run${runs===1?"":"s"}`,null],
+    ["Runs",runs,`in the last ${state.days}d`,null],
+    ["Average run",runs?fmt(secs/runs):"—","",null],
+    ["macOS time",macSecs?fmt(macSecs):"—",macSecs?"10x rate if ever private":"none",null],
+  ]);
+  const top=Math.max(...byRepo.map(x=>x[1]),1);
+  hbars($("#rtRepo"), byRepo.sort((a,b)=>b[1]-a[1])
+    .map(([n,v,os])=>[n+(os==="macos"?"  (macOS)":""),fmt(v),
+      os==="macos"?"warn":"acc",`https://github.com/${OWNER}/${n}/actions`,v/top]));
+  const wf=Object.entries(byWf).filter(x=>x[1]>0).sort((a,b)=>b[1]-a[1]).slice(0,6);
+  const wtop=Math.max(...wf.map(x=>x[1]),1);
+  hbars($("#rtWf"), wf.map(([n,v])=>[n,fmt(v),"acc",null,v/wtop]));
 }
 
 function paintCQ(){
@@ -508,11 +537,14 @@ function paintCQ(){
 }
 function hbars(host,rows){
   host.innerHTML="";
-  if(!rows.length){ host.appendChild(el("p","empty","No open findings.")); return; }
-  const top=Math.max(...rows.map(r=>r[1]),1);
-  rows.forEach(([label,val,cls,href])=>{ const d=el("div","hb");
+  if(!rows.length){ host.appendChild(el("p","empty","Nothing to show.")); return; }
+  const nums=rows.map(r=>typeof r[1]==="number"?r[1]:0);
+  const top=Math.max(...nums,1);
+  rows.forEach(([label,val,cls,href,frac])=>{ const d=el("div","hb");
     const l=el("span","hbl mono"); l.appendChild(href?link(label,href):document.createTextNode(label));
-    const t=el("span","hbt"); const i=el("i",cls); i.style.width=(val/top*100).toFixed(1)+"%";
+    const t=el("span","hbt"); const i=el("i",cls);
+    const w = frac!=null ? frac*100 : (typeof val==="number" ? val/top*100 : 0);
+    i.style.width=Math.max(w,2).toFixed(1)+"%";
     t.appendChild(i); d.appendChild(l); d.appendChild(t); d.appendChild(el("span","hbv num mono",val));
     host.appendChild(d); });
 }
@@ -606,6 +638,14 @@ HTML = f"""<!doctype html>
 <h2>Per-repository</h2>
 <p class="cap">Every column sorts — click a header or focus it and press Enter. Defaults to worst alerts first.</p>
 <div class="scroll"><table id="tRepo"></table></div>
+
+<h2>Runner time</h2>
+<p class="cap">Elapsed wall-clock across CI runs in the selected window, derived from run timestamps. This is <em>not</em> billable time: standard GitHub-hosted runners are free and unmetered on public repositories, and GitHub reports <code>billable = 0</code> for every repo here. It is shown because the shape still matters &mdash; and because macOS runners bill at 10&times; the moment a repo goes private.</p>
+<div class="tiles" id="rt"></div>
+<div class="two">
+  <div class="panel"><h2 style="margin:0 0 2px">Time by repository</h2><p class="cap">Longest first.</p><div id="rtRepo"></div></div>
+  <div class="panel"><h2 style="margin:0 0 2px">Time by workflow</h2><p class="cap">Which workflow consumes the most.</p><div id="rtWf"></div></div>
+</div>
 
 <h2>Code quality</h2>
 <p class="cap">SonarCloud static analysis with imported test coverage, plus CodeQL security scanning. Quality gates judge <em>new</em> code only — a repo can pass its gate while carrying findings on existing code.</p>
