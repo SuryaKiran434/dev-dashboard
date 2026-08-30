@@ -243,7 +243,8 @@ function bindTip(node, rows, title) {
   node.addEventListener("blur", hide);
 }
 
-function drawBars(host, buckets, labels, names, colors) {
+function drawBars(host, buckets, labels, names, colors, titles) {
+  titles = titles || labels;
   host.innerHTML = "";
   const W=640,H=126,PL=28,GAP=2,n=buckets[0].length,k=buckets.length;
   const top = Math.max(1, ...buckets.flat());
@@ -267,8 +268,8 @@ function drawBars(host, buckets, labels, names, colors) {
       p.setAttribute("d",`M${x},${H} v${-(bh-r)} a${r},${r} 0 0 1 ${r},${-r} h${bw-2*r} a${r},${r} 0 0 1 ${r},${r} V${H} z`);
       p.setAttribute("fill",colors[j]); p.setAttribute("class","bar-m");
       p.setAttribute("tabindex","0"); p.setAttribute("role","img");
-      p.setAttribute("aria-label",`${names[j]} ${labels[i]}: ${v}`);
-      bindTip(p, [[names[j], v, colors[j]]], labels[i]);
+      p.setAttribute("aria-label",`${names[j]} ${titles[i]}: ${v}`);
+      bindTip(p, [[names[j], v, colors[j]]], titles[i]);
       svg.appendChild(p);
     }
     if(n<=12||i%Math.ceil(n/12)===0){
@@ -323,17 +324,22 @@ function bucketPlan() {
   // Dated rather than named. Every window on offer spans more than one of some
   // weekday, so "Sat" would be ambiguous about which Saturday it meant -- and a
   // bar grouping several days has no single weekday to be named after.
-  const lab = [];
+  const asLabel = k => { const [y,m,d]=k.split("-").map(Number);
+    return new Date(Date.UTC(y,m-1,d,12)).toLocaleDateString(undefined,
+      {day:"numeric", month:"short", timeZone:"America/New_York"}); };
+  const lab = [], range = [];
   for (let i=0; i<n; i++) {
-    const [y,m,d] = days[i*per].split("-").map(Number);
-    lab.push(new Date(Date.UTC(y,m-1,d,12)).toLocaleDateString(undefined,
-      {day:"numeric", month:"short", timeZone:"America/New_York"}));
+    const first = days[i*per], last = days[Math.min((i+1)*per-1, days.length-1)];
+    lab.push(asLabel(first));
+    // The axis shows the bucket's first day for width, but a grouped bar covers
+    // several -- so tooltips name the span rather than implying a single day.
+    range.push(first === last ? asLabel(first) : asLabel(first)+" \u2013 "+asLabel(last));
   }
-  return {n, per, idxOf, lab};
+  return {n, per, idxOf, lab, range};
 }
 
 function timeBuckets() {
-  const {n, idxOf, lab} = PLAN;
+  const {n, idxOf, lab, range} = PLAN;
   const po=Array(n).fill(0), pm=Array(n).fill(0), ao=Array(n).fill(0), af=Array(n).fill(0);
   // Events outside the window are simply absent from idxOf, so the lookup is
   // also the window filter -- and the bars therefore sum to the tiles above.
@@ -342,17 +348,25 @@ function timeBuckets() {
     for(const [c,m] of r.pr_events){ put(po,c); if(m>=0) put(pm,m); }
     if(r.alerts) for(const [c,f] of r.alerts.events){ put(ao,c); if(f>=0) put(af,f); }
   }
-  return {lab, po, pm, ao, af};
+  return {lab, range, po, pm, ao, af};
 }
 
 function sparkFor(r){
-  const {n, idxOf} = PLAN, v=Array(n).fill(0);
+  const {n, idxOf, range} = PLAN, v=Array(n).fill(0);
   for(const [c] of r.pr_events){ const i=idxOf.get(dayKeyOf(c)); if(i!==undefined) v[i]++; }
   if(!v.some(Boolean)) return null;
   const top=Math.max(...v), NS="http://www.w3.org/2000/svg";
   const svg=document.createElementNS(NS,"svg");
   svg.setAttribute("viewBox","0 0 64 17");svg.setAttribute("class","spark");
-  svg.setAttribute("role","img");svg.setAttribute("aria-label","activity trend");
+  svg.setAttribute("role","img");
+  // "activity trend" described the picture rather than the data. Each row now
+  // says whose activity it is and when it peaked, which is the one fact the
+  // shape is meant to convey.
+  svg.setAttribute("aria-label",
+    `${r.name}: pull requests opened, peak ${top} on ${range[v.indexOf(top)]}`);
+  // One hover target for the whole cell rather than n bars a few pixels wide --
+  // the per-bucket counts are read out in the tooltip instead of being aimed at.
+  bindTip(svg, v.map((x,i)=>[range[i], x, "var(--s1)"]).filter(([,x])=>x), r.name);
   const bw=(64-(n-1))/n;
   v.forEach((x,i)=>{ if(!x)return; const h=Math.max(x/top*17,1.5);
     const rc=document.createElementNS(NS,"rect");
@@ -439,8 +453,8 @@ function render(){
   ]);
 
   const b=timeBuckets();
-  drawBars($("#chPR"),[b.po,b.pm],b.lab,["Opened","Merged"],["var(--s1)","var(--s2)"]);
-  drawBars($("#chAL"),[b.ao,b.af],b.lab,["Raised","Resolved"],["var(--s1)","var(--s2)"]);
+  drawBars($("#chPR"),[b.po,b.pm],b.lab,["Opened","Merged"],["var(--s1)","var(--s2)"],b.range);
+  drawBars($("#chAL"),[b.ao,b.af],b.lab,["Raised","Resolved"],["var(--s1)","var(--s2)"],b.range);
 
   sortable($("#tPR"),openPRs,[
     {key:"repo",label:"Repo",cls:"mono",val:r=>r.repo,render:r=>link(r.repo,`https://github.com/${OWNER}/${r.repo}`)},
@@ -499,7 +513,7 @@ function render(){
             c.title={c:"critical",h:"high",m:"medium",l:"low"}[k]+": "+v; s.appendChild(c);} });
         return s.childNodes.length?s:el("span","dim","0"); }},
     {key:"cq",label:"CodeQL",cls:"num",val:r=>r._cq??-1,render:r=>r._cq==null?el("span","dim","—"):String(r._cq)},
-    {key:"spark",label:"PR activity",help:"Pull requests opened per bucket across the selected window. Shape only \u2014 the exact counts are in the PRs opened column.",val:r=>r._o,render:r=>sparkFor(r)||el("span","dim","—")},
+    {key:"spark",label:"PR activity",help:"Pull requests opened per day across the selected window, on the same buckets as the Activity charts (days are grouped into blocks on longer windows). Shape only \u2014 each row is scaled to its own busiest day, so heights are not comparable between repositories. Hover for the counts; the window total is in the PRs opened column.",val:r=>r._o,render:r=>sparkFor(r)||el("span","dim","—")},
     {key:"pushed",label:"Last commit",help:"Time since the most recent push to any branch. Hover the value for the exact timestamp.",cls:"num mono dim",val:r=>-r.pushed_h,render:r=>{const sp=el("span",null,ageH(r.pushed_h)+" ago");sp.title=absTime(r.pushed_h);return sp;}},
   ],"alerts");
 
