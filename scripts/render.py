@@ -107,8 +107,10 @@ padding:3px 9px;border-radius:20px;white-space:nowrap}
 .pill.critical{background:var(--critbg);color:var(--critical)}
 .pill.warning{background:var(--warnbg);color:var(--warning)}
 .pill.mute{background:var(--mutebg);color:var(--mute)}
-.sev{display:inline-block;font-family:"IBM Plex Mono",ui-monospace,Menlo,monospace;
-font-size:12.5px;font-weight:500;padding:2px 7px;border-radius:5px;margin-left:3px}
+.sevwrap{display:flex;gap:4px;justify-content:flex-end;align-items:center;flex-wrap:nowrap}
+.sev{display:inline-flex;align-items:center;justify-content:center;min-width:24px;
+font-family:"IBM Plex Mono",ui-monospace,Menlo,monospace;font-size:12.5px;
+font-weight:500;padding:2px 6px;border-radius:5px;line-height:1.35}
 .sev.c,.sev.h{background:var(--critbg);color:var(--critical)}
 .sev.m{background:var(--warnbg);color:var(--warning)}
 .sev.l{background:var(--mutebg);color:var(--mute)}
@@ -418,9 +420,10 @@ function render(){
     {key:"fr",label:"CI failure rate",help:"Share of completed CI runs on the default branch that failed, within the selected window.",cls:"num mono",val:r=>r._fr??-1,render:r=>r._fr==null?"—":r._fr.toFixed(0)+"%"},
     {key:"ci",label:"CI",val:r=>r.ci_latest==="failure"?0:1,render:r=>ciPill(r.ci_latest)},
     {key:"alerts",label:"Alerts",cls:"num",val:r=>r._sev?r._sev.c*100+r._sev.h*10+r._sev.m:-1,
-      render:r=>{ if(!r._sev)return el("span","dim","—"); const s=el("span");
+      render:r=>{ if(!r._sev)return el("span","dim","—"); const s=el("span","sevwrap");
         [["c",r._sev.c],["h",r._sev.h],["m",r._sev.m],["l",r._sev.l]].forEach(([k,v])=>{
-          if(v)s.appendChild(el("span","sev "+k,v)); });
+          if(v){const c=el("span","sev "+k,v);
+            c.title={c:"critical",h:"high",m:"medium",l:"low"}[k]+": "+v; s.appendChild(c);} });
         return s.childNodes.length?s:el("span","dim","0"); }},
     {key:"cq",label:"CodeQL",cls:"num",val:r=>r._cq??-1,render:r=>r._cq==null?el("span","dim","—"):String(r._cq)},
     {key:"spark",label:"PR activity",help:"Pull requests opened per bucket across the selected window. Shape only \u2014 the exact counts are in the PRs opened column.",val:r=>r._o,render:r=>sparkFor(r)||el("span","dim","—")},

@@ -130,7 +130,10 @@ def collect_repo(r):
     runs, _ = gh(f"/repos/{OWNER}/{name}/actions/runs",
                  {"branch": branch, "created": f">={SINCE.date().isoformat()}"},
                  paginate=True, cap=300)
-    runs = [x for x in (runs or []) if "slack" not in x["name"].lower()]
+    runs = [x for x in (runs or [])
+            if "slack" not in x["name"].lower()
+            and x.get("event") != "dynamic"
+            and not str(x.get("path", "")).startswith("dynamic/")]
     runs.sort(key=lambda x: x["created_at"])
     total = fails = 0
     restore_hours, failing_runs = [], []
