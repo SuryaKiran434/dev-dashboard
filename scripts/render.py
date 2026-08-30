@@ -657,7 +657,8 @@ HTML = f"""<!doctype html>
 </div>
 <p class="note" id="cqNote"></p>
 {tok}
-<footer>Rebuilt on a schedule by GitHub Actions and published as a Pages artifact — no commits, no notifications.
+<footer><a href="https://github.com/{E(OWNER)}/dev-dashboard/actions/workflows/dashboard.yml">Rebuild now &rarr;</a> &middot; rebuilt hourly by GitHub Actions, published as a Pages artifact — no commits, no notifications.
+GitHub throttles frequent schedules on free public repositories, so hourly is the honest cadence; use the link above (or <code>gh workflow run dashboard.yml -R {E(OWNER)}/dev-dashboard</code>) for an immediate rebuild.
 180 days of events ship inline, so every filter and sort is instant and needs no network. New repositories appear with no configuration.</footer>
 </div>
 <div id="tip" role="status" aria-live="polite"></div>

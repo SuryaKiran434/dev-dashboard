@@ -57,3 +57,37 @@ panel fills in once SonarQube or CodeQL reports.
 - "Caused by" resolves only when a failing run's `head_sha` matches a PR's merge
   commit. Direct pushes to the default branch show the commit instead.
 - Dependabot's alerts endpoint uses **cursor** pagination; `?page=` returns 400.
+
+## Rebuilding on demand
+
+The scheduled rebuild is **hourly**, not more frequent. GitHub deprioritises
+high-frequency schedules on free public repositories: a measured `*/10` cron
+fired 4 times in 15.5 hours — a 96% drop rate — at roughly 5-hour intervals.
+A less aggressive cron is honoured more reliably, so hourly produces *more*
+actual rebuilds than `*/10` did.
+
+For an immediate rebuild, any of:
+
+```bash
+gh workflow run dashboard.yml -R SuryaKiran434/dev-dashboard
+```
+
+- the **Rebuild now** link in the page footer
+- Actions → *Build dashboard* → **Run workflow**
+- the GitHub mobile app (Actions → Run workflow)
+
+A build takes about 40 seconds end to end.
+
+### If you want true real-time
+
+Event-driven rebuilds (~60s after any push anywhere) require a
+`repository_dispatch` call from each source repo, which means a PAT secret in
+all twelve — twelve more places to rotate. Worth it only if hourly plus
+on-demand proves insufficient.
+
+### One thing to watch
+
+**GitHub disables scheduled workflows after 60 days without a push to the
+repository.** This repo only receives pushes when the dashboard code changes,
+so a long quiet period will silently stop the cron. Triggering a manual run
+does not reset that timer — only a commit does.

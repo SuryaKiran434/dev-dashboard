@@ -2,15 +2,13 @@ name: Build dashboard
 
 on:
   schedule:
-    # Every 10 minutes. Collection is parallelised (~7s at 13 repos), so a
-    # build is cheap; the limit is the GitHub API budget, not compute.
-    # 6 builds/hour x ~6 calls per repo stays well inside the 5,000/hour
-    # authenticated quota -- roughly 9% at 13 repos, 36% at 50. The
-    # collector refuses to build rather than emit partial data if the
-    # remaining quota would not cover a full pass.
-    # GitHub schedules cron best-effort on shared runners, so treat this as
-    # "about every 10 minutes", not exact.
-    - cron: "*/10 * * * *"
+    # Hourly, NOT every 10 minutes. GitHub deprioritises high-frequency
+    # schedules on free public repos: a measured */10 here fired 4 times in
+    # 15.5 hours -- a 96% drop rate -- at roughly 5-hour intervals. A less
+    # aggressive cron is honoured more reliably, so hourly delivers MORE
+    # actual rebuilds than */10 did, and the page can state a cadence that
+    # is true. For anything fresher, trigger on demand (see README).
+    - cron: "0 * * * *"
   workflow_dispatch:
   push:
     branches: [main]
