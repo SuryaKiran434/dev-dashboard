@@ -561,7 +561,7 @@ HTML = f"""<!doctype html>
 <style>{CSS}</style></head><body>
 <div class="wrap">
 <header><h1>{E(OWNER)}</h1><span class="chip mono" id="chip"></span></header>
-<p class="sub">Every repository, discovered automatically · rebuilt {E(gen)} UTC · filters apply to everything below</p>
+<p class="sub">Every repository, discovered automatically · rebuilt {E(gen)} · filters apply to everything below</p>
 
 <div class="bar" role="group" aria-label="Filters">
   <div class="seg" id="win" role="group" aria-label="Time range">
