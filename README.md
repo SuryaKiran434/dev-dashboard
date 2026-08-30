@@ -9,10 +9,15 @@ build with no edit here. Archived repos are skipped.
 
 ## How it works
 
-`scripts/build_dashboard.py` queries the GitHub API and writes `index.html`.
-A scheduled Action runs it roughly every 30 minutes and publishes the result to
-GitHub Pages. The page is **deployed as a Pages artifact, not committed** — so
-the dashboard generates no commits and no notification email.
+Two scripts, run in order. `scripts/collect.py` queries the GitHub API and the
+SonarCloud API and writes `data.json`; `scripts/render.py` turns that into a
+single self-contained `index.html`. Splitting them keeps a render change from
+costing an API round trip, and lets the page be re-rendered from a collection
+that has already happened.
+
+A scheduled Action runs both hourly and publishes the result to GitHub Pages.
+The page is **deployed as a Pages artifact, not committed** — so the dashboard
+generates no commits and no notification email.
 
 ## Dependabot alert counts
 
@@ -26,9 +31,13 @@ explains why. It never fails for want of a scope.
 ## Running it locally
 
 ```bash
-GH_TOKEN=$(gh auth token) python3 scripts/build_dashboard.py
+GH_TOKEN=$(gh auth token) python3 scripts/collect.py   # → data.json
+python3 scripts/render.py                              # → index.html
 open index.html
 ```
+
+`render.py` needs no token and no network: it reads `data.json` and nothing else,
+so iterating on the page costs no API quota.
 
 ## Metrics
 
@@ -68,15 +77,30 @@ actual rebuilds than `*/10` did.
 
 For an immediate rebuild, any of:
 
-```bash
-gh workflow run dashboard.yml -R SuryaKiran434/dev-dashboard
-```
-
-- the **Rebuild now** link in the page footer
-- Actions → *Build dashboard* → **Run workflow**
-- the GitHub mobile app (Actions → Run workflow)
+- the **Rebuild now** button in the page header — it dispatches the workflow over
+  the GitHub API, polls the run with a live elapsed timer, and reloads the page
+  itself once the deploy lands
+- `gh workflow run dashboard.yml -R SuryaKiran434/dev-dashboard`
+- `./refresh.sh` — triggers a build, waits for it, prints the live timestamp
+- Actions → *Build dashboard* → **Run workflow**, including from the mobile app
 
 A build takes about 40 seconds end to end.
+
+### The token behind the Rebuild button
+
+GitHub Pages is static, so nothing on the page can start a workflow without
+credentials. There are exactly two ways to do it: a server holding a secret, or
+the viewer's own token. This takes the second — a repo-writing credential in a
+public page is not a trade worth making.
+
+On first use the page asks for a fine-grained token scoped to **only** this
+repository with a single permission, **Actions: Read and write**. It is kept in
+that browser's `localStorage`, is never committed and never rendered into the
+page, and goes nowhere but `api.github.com`. **Forget token** clears it.
+
+One caveat: every page under `<owner>.github.io` shares a single origin, so any
+Pages site of the same owner can read that entry. That is why the token is
+scoped to one repository and one permission.
 
 ### If you want true real-time
 
