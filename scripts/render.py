@@ -39,6 +39,10 @@ font:16px/1.55 "IBM Plex Sans","Segoe UI",-apple-system,BlinkMacSystemFont,Robot
 -webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
 .wrap{max-width:1280px;margin:0 auto;padding:28px 22px 76px}
 header{display:flex;align-items:baseline;gap:13px;flex-wrap:wrap;margin-bottom:5px}
+.rebuild{margin-left:auto;align-self:center;font-size:13.5px;font-weight:500;
+text-decoration:none;color:var(--ink2);border:1px solid var(--line);border-radius:7px;
+padding:5px 11px;white-space:nowrap;transition:border-color .15s,color .15s,background .15s}
+.rebuild:hover,.rebuild:focus-visible{color:var(--ink);border-color:var(--ink3);background:var(--mutebg)}
 h1{font-size:1.72rem;font-weight:600;letter-spacing:-.02em;margin:0}
 .sub{color:var(--ink2);font-size:14px;margin:0 0 20px}
 .mono{font-family:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
@@ -595,7 +599,7 @@ HTML = f"""<!doctype html>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
 <style>{CSS}</style></head><body>
 <div class="wrap">
-<header><h1>{E(OWNER)}</h1><span class="chip mono" id="chip"></span></header>
+<header><h1>{E(OWNER)}</h1><span class="chip mono" id="chip"></span><a class="rebuild" href="https://github.com/{E(OWNER)}/dev-dashboard/actions/workflows/dashboard.yml" title="Opens the GitHub Actions workflow — press Run workflow, then reload this page in ~40s">Rebuild now &rarr;</a></header>
 <p class="sub">Every repository, discovered automatically · rebuilt {E(gen)} · filters apply to everything below</p>
 
 <div class="bar" role="group" aria-label="Filters">
@@ -657,8 +661,8 @@ HTML = f"""<!doctype html>
 </div>
 <p class="note" id="cqNote"></p>
 {tok}
-<footer><a href="https://github.com/{E(OWNER)}/dev-dashboard/actions/workflows/dashboard.yml">Rebuild now &rarr;</a> &middot; rebuilt hourly by GitHub Actions, published as a Pages artifact — no commits, no notifications.
-GitHub throttles frequent schedules on free public repositories, so hourly is the honest cadence; use the link above (or <code>gh workflow run dashboard.yml -R {E(OWNER)}/dev-dashboard</code>) for an immediate rebuild.
+<footer>Rebuilt hourly by GitHub Actions, published as a Pages artifact — no commits, no notifications.
+GitHub throttles frequent schedules on free public repositories, so hourly is the honest cadence; use <b>Rebuild now</b> at the top of the page (or <code>gh workflow run dashboard.yml -R {E(OWNER)}/dev-dashboard</code>) for an immediate rebuild.
 180 days of events ship inline, so every filter and sort is instant and needs no network. New repositories appear with no configuration.</footer>
 </div>
 <div id="tip" role="status" aria-live="polite"></div>
