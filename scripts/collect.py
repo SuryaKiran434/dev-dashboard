@@ -147,6 +147,7 @@ def collect_repo(r):
             failing_runs.append({
                 "repo": name, "wf": run["name"], "url": run["html_url"],
                 "at_h": int((_ts(run["created_at"]) - EPOCH).total_seconds() // 3600),
+                "_raw_at": run["created_at"],
                 "sha": run["head_sha"][:7],
                 "pr": pr, "msg": (run.get("head_commit") or {}).get("message", "").split("\n")[0][:70],
             })
@@ -157,6 +158,28 @@ def collect_repo(r):
     run_ev = [[int((_ts(x["created_at"]) - EPOCH).total_seconds() // 3600),
                1 if x["conclusion"] == "success" else (0 if x["conclusion"] == "failure" else 2)]
               for x in runs if x["status"] == "completed"]
+
+    # For each failure, find the next SUCCESSFUL run of the SAME workflow. That
+    # run's commit is what actually restored the build, so the PR it belongs to
+    # is the one that addressed the failure. Without this a reader cannot tell a
+    # live breakage from one fixed hours ago.
+    by_wf = {}
+    for x in runs:
+        if x["status"] == "completed":
+            by_wf.setdefault(x["name"], []).append(x)
+    for f in failing_runs:
+        later = [x for x in by_wf.get(f["wf"], [])
+                 if _ts(x["created_at"]) > _ts(f["_raw_at"]) and x["conclusion"] == "success"]
+        if later:
+            fix = min(later, key=lambda x: x["created_at"])
+            f["fixed_h"] = int((_ts(fix["created_at"]) - EPOCH).total_seconds() // 3600)
+            f["fixed_by"] = sha_to_pr.get(fix["head_sha"])
+            f["fixed_sha"] = fix["head_sha"][:7]
+            f["fixed_url"] = fix["html_url"]
+        else:
+            f["fixed_h"] = None
+        f.pop("_raw_at", None)
+
     d.update(ci_latest=latest, run_events=run_ev, failing_runs=failing_runs[-25:])
 
     # ---- dependabot alerts ---------------------------------------------

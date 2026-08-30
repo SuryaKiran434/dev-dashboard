@@ -16,125 +16,122 @@ OWNER = D["owner"]
 CSS = """
 *{box-sizing:border-box}
 :root{color-scheme:light;
---bg:#F2F4F7;--card:#fff;--card2:#FAFBFC;--ink:#0d1117;--ink2:#4a5462;--ink3:#8b95a3;
---line:#E3E7ED;--line2:#EDF0F4;--accent:#2a78d6;--s1:#2a78d6;--s2:#eb6834;
---good:#0ca30c;--warning:#b07600;--serious:#ec835a;--critical:#d03b3b;--mute:#6B7280;
---goodbg:#E4F4E4;--warnbg:#FBF1DA;--critbg:#FAE4E4;--mutebg:#EDEFF3;--grid:#E9EDF2;
---shadow:0 1px 2px rgba(16,24,40,.05),0 1px 3px rgba(16,24,40,.04)}
+/* warm neutral ground rather than the cold blue-grey; cards sit brighter than it */
+--bg:#F6F5F3;--card:#FFFFFF;--card2:#FAF9F7;--ink:#1A1917;--ink2:#57544E;--ink3:#8A857D;
+--line:#E4E1DB;--line2:#EEEBE6;--accent:#1F6FEB;--s1:#2a78d6;--s2:#eb6834;
+--good:#137333;--warning:#9A6400;--critical:#B3261E;--mute:#6B6862;
+--goodbg:#E3F1E6;--warnbg:#FBF0D9;--critbg:#FBE6E4;--mutebg:#EFEDE9;--grid:#E9E6E1;
+--shadow:0 1px 2px rgba(26,25,23,.06),0 1px 3px rgba(26,25,23,.04)}
 @media(prefers-color-scheme:dark){:root:not([data-theme=light]){color-scheme:dark;
---bg:#0d1117;--card:#161b22;--card2:#1a2029;--ink:#e6edf3;--ink2:#adbac7;--ink3:#7d8590;
---line:#262c36;--line2:#21262d;--accent:#539bf5;--s1:#539bf5;--s2:#d95926;
---good:#3fb950;--warning:#d29922;--critical:#f85149;--mute:#8b949e;
---goodbg:#12261a;--warnbg:#2b2317;--critbg:#2d1618;--mutebg:#21262d;--grid:#21262d;
---shadow:0 1px 2px rgba(0,0,0,.3)}}
+--bg:#16181C;--card:#1F2229;--card2:#252932;--ink:#EDEDEB;--ink2:#B4B2AD;--ink3:#84827D;
+--line:#2E323B;--line2:#262A32;--accent:#6BA5F7;--s1:#539bf5;--s2:#e0713d;
+--good:#4CAF6D;--warning:#D6A54A;--critical:#EE6C63;--mute:#8B8882;
+--goodbg:#16301F;--warnbg:#2E2718;--critbg:#31191A;--mutebg:#262A32;--grid:#282C34;
+--shadow:0 1px 2px rgba(0,0,0,.35)}}
 :root[data-theme=dark]{color-scheme:dark;
---bg:#0d1117;--card:#161b22;--card2:#1a2029;--ink:#e6edf3;--ink2:#adbac7;--ink3:#7d8590;
---line:#262c36;--line2:#21262d;--accent:#539bf5;--s1:#539bf5;--s2:#d95926;
---good:#3fb950;--warning:#d29922;--critical:#f85149;--mute:#8b949e;
---goodbg:#12261a;--warnbg:#2b2317;--critbg:#2d1618;--mutebg:#21262d;--grid:#21262d;
---shadow:0 1px 2px rgba(0,0,0,.3)}
+--bg:#16181C;--card:#1F2229;--card2:#252932;--ink:#EDEDEB;--ink2:#B4B2AD;--ink3:#84827D;
+--line:#2E323B;--line2:#262A32;--accent:#6BA5F7;--s1:#539bf5;--s2:#e0713d;
+--good:#4CAF6D;--warning:#D6A54A;--critical:#EE6C63;--mute:#8B8882;
+--goodbg:#16301F;--warnbg:#2E2718;--critbg:#31191A;--mutebg:#262A32;--grid:#282C34;
+--shadow:0 1px 2px rgba(0,0,0,.35)}
 body{margin:0;background:var(--bg);color:var(--ink);
-font:14.5px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
--webkit-font-smoothing:antialiased}
-.wrap{max-width:1240px;margin:0 auto;padding:26px 20px 70px}
-header{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin-bottom:4px}
-h1{font-size:1.32rem;font-weight:650;letter-spacing:-.021em;margin:0}
-.sub{color:var(--ink3);font-size:12.5px;margin:0 0 18px}
-.mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+font:16px/1.55 "IBM Plex Sans","Segoe UI",-apple-system,BlinkMacSystemFont,Roboto,Helvetica,Arial,sans-serif;
+-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+.wrap{max-width:1280px;margin:0 auto;padding:28px 22px 76px}
+header{display:flex;align-items:baseline;gap:13px;flex-wrap:wrap;margin-bottom:5px}
+h1{font-size:1.72rem;font-weight:600;letter-spacing:-.02em;margin:0}
+.sub{color:var(--ink2);font-size:14px;margin:0 0 20px}
+.mono{font-family:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
 
-/* filter bar — one row, above everything it scopes */
-.bar{position:sticky;top:0;z-index:20;background:var(--bg);padding:9px 0 11px;
-margin-bottom:16px;border-bottom:1px solid var(--line);display:flex;gap:9px;
+.bar{position:sticky;top:0;z-index:20;background:var(--bg);padding:11px 0 13px;
+margin-bottom:18px;border-bottom:1px solid var(--line);display:flex;gap:10px;
 align-items:center;flex-wrap:wrap}
-.seg{display:inline-flex;background:var(--mutebg);border-radius:7px;padding:2px}
-.seg button{border:0;background:none;color:var(--ink2);font:inherit;font-size:12.5px;
-font-weight:550;padding:4px 11px;border-radius:5px;cursor:pointer;transition:none}
-.seg button[aria-pressed=true]{background:var(--card);color:var(--ink);box-shadow:var(--shadow)}
+.seg{display:inline-flex;background:var(--mutebg);border-radius:8px;padding:3px}
+.seg button{border:0;background:none;color:var(--ink2);font:inherit;font-size:14px;
+font-weight:500;padding:5px 13px;border-radius:6px;cursor:pointer}
+.seg button[aria-pressed=true]{background:var(--card);color:var(--ink);box-shadow:var(--shadow);font-weight:600}
 .seg button:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
-select,input[type=search]{font:inherit;font-size:12.5px;padding:5px 9px;border:1px solid var(--line);
-border-radius:7px;background:var(--card);color:var(--ink);min-width:0}
-input[type=search]{width:190px}
+select,input[type=search]{font:inherit;font-size:14px;padding:6px 11px;border:1px solid var(--line);
+border-radius:8px;background:var(--card);color:var(--ink);min-width:0}
+input[type=search]{width:210px}
 select:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline-offset:-1px}
 .spacer{flex:1}
-.chip{font-size:11.5px;color:var(--ink3);white-space:nowrap}
+.chip{font-size:13px;color:var(--ink3);white-space:nowrap}
 
-h2{font-size:.86rem;font-weight:650;margin:26px 0 3px;letter-spacing:.005em;
-text-transform:uppercase;color:var(--ink2)}
-.cap{font-size:12px;color:var(--ink3);margin:0 0 11px;max-width:78ch}
+h2{font-size:1.02rem;font-weight:600;margin:30px 0 4px;letter-spacing:-.008em;color:var(--ink)}
+.cap{font-size:13.5px;color:var(--ink2);margin:0 0 13px;max-width:86ch}
 
-.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(152px,1fr));gap:10px}
-.tile{background:var(--card);border:1px solid var(--line);border-radius:9px;
-padding:12px 14px;box-shadow:var(--shadow)}
-.tile b{display:block;font-size:24px;font-weight:620;letter-spacing:-.024em;
-font-variant-numeric:tabular-nums;line-height:1.22}
-.tile span{font-size:10.5px;color:var(--ink3);text-transform:uppercase;
-letter-spacing:.06em;font-weight:650}
-.tile em{font-style:normal;font-size:11px;color:var(--ink3);display:block;margin-top:1px}
-.delta{font-size:11px;font-weight:650;margin-left:6px;vertical-align:2px}
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(168px,1fr));gap:11px}
+.tile{background:var(--card);border:1px solid var(--line);border-radius:10px;
+padding:14px 16px;box-shadow:var(--shadow)}
+.tile b{display:block;font-size:28px;font-weight:600;letter-spacing:-.022em;
+font-variant-numeric:tabular-nums;line-height:1.2}
+.tile span{font-size:12px;color:var(--ink3);text-transform:uppercase;
+letter-spacing:.05em;font-weight:600}
+.tile em{font-style:normal;font-size:12.5px;color:var(--ink3);display:block;margin-top:2px}
+.delta{font-size:12.5px;font-weight:600;margin-left:7px;vertical-align:2px}
 .delta.up{color:var(--good)}.delta.down{color:var(--critical)}.delta.flat{color:var(--ink3)}
 
-.panel{background:var(--card);border:1px solid var(--line);border-radius:9px;
-padding:14px 16px;box-shadow:var(--shadow)}
-.two{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px}
-@media(max-width:860px){.two{grid-template-columns:1fr}}
+.panel{background:var(--card);border:1px solid var(--line);border-radius:10px;
+padding:16px 18px;box-shadow:var(--shadow)}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:13px;margin-top:13px}
+@media(max-width:880px){.two{grid-template-columns:1fr}}
 svg.chart{width:100%;height:auto;display:block;overflow:visible}
 .grid{stroke:var(--grid);stroke-width:1}
-.ax{fill:var(--ink3);font-size:9.5px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
-.bar-m{transition:none}
+.ax{fill:var(--ink3);font-size:11px;font-family:"IBM Plex Mono",ui-monospace,Menlo,monospace}
 .bar-m:hover,.bar-m:focus{filter:brightness(1.14);outline:none}
-.legend{display:flex;gap:14px;margin-top:8px;font-size:11.5px;color:var(--ink2)}
-.legend i{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:5px}
+.legend{display:flex;gap:16px;margin-top:10px;font-size:13px;color:var(--ink2)}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:6px}
 
 table{width:100%;border-collapse:collapse;background:var(--card);
-border:1px solid var(--line);border-radius:9px;overflow:hidden;box-shadow:var(--shadow)}
-th{text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:.06em;
-color:var(--ink3);font-weight:650;padding:8px 11px;border-bottom:1px solid var(--line);
+border:1px solid var(--line);border-radius:10px;overflow:hidden;box-shadow:var(--shadow)}
+th{text-align:left;font-size:12px;letter-spacing:.02em;color:var(--ink2);
+font-weight:600;padding:10px 13px;border-bottom:1px solid var(--line);
 background:var(--card2);white-space:nowrap}
 th.s{cursor:pointer;user-select:none}
 th.s:hover{color:var(--ink)}
-th.s::after{content:"";opacity:.32;margin-left:4px;font-size:9px}
+th.s::after{content:"↕";opacity:.3;margin-left:5px;font-size:10px}
 th.s[data-dir=asc]::after{content:"▲";opacity:1}
 th.s[data-dir=desc]::after{content:"▼";opacity:1}
-th.s:not([data-dir])::after{content:"↕"}
-td{padding:7px 11px;border-bottom:1px solid var(--line2);font-size:13px}
+td{padding:9px 13px;border-bottom:1px solid var(--line2);font-size:14.5px}
 tbody tr:last-child td{border-bottom:0}
 tbody tr:hover{background:var(--card2)}
 .num{text-align:right;font-variant-numeric:tabular-nums}
 .dim{color:var(--ink3)}
-.empty{text-align:center;color:var(--ink3);padding:22px}
+.empty{text-align:center;color:var(--ink3);padding:26px;font-size:14.5px}
 a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
-.pill{display:inline-flex;align-items:center;gap:4px;font-size:10.5px;font-weight:650;
-padding:2px 7px;border-radius:20px;white-space:nowrap}
+.pill{display:inline-flex;align-items:center;gap:5px;font-size:12.5px;font-weight:600;
+padding:3px 9px;border-radius:20px;white-space:nowrap}
+.pill b{font-size:11px}
 .pill.good{background:var(--goodbg);color:var(--good)}
 .pill.critical{background:var(--critbg);color:var(--critical)}
 .pill.warning{background:var(--warnbg);color:var(--warning)}
 .pill.mute{background:var(--mutebg);color:var(--mute)}
-.sev{display:inline-block;font-family:ui-monospace,Menlo,monospace;font-size:10.5px;
-padding:1px 5px;border-radius:4px;margin-left:2px}
+.sev{display:inline-block;font-family:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+font-size:12.5px;font-weight:500;padding:2px 7px;border-radius:5px;margin-left:3px}
 .sev.c,.sev.h{background:var(--critbg);color:var(--critical)}
 .sev.m{background:var(--warnbg);color:var(--warning)}
 .sev.l{background:var(--mutebg);color:var(--mute)}
-.spark{width:64px;height:17px;display:block}
-.hb{display:grid;grid-template-columns:1fr 90px 26px;gap:9px;align-items:center;
-padding:3.5px 0;font-size:12.5px}
+.spark{width:70px;height:18px;display:block}
+.hb{display:grid;grid-template-columns:1fr 100px 34px;gap:10px;align-items:center;
+padding:5px 0;font-size:14px}
 .hbl{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.hbt{background:var(--mutebg);border-radius:3px;height:7px;display:block;overflow:hidden}
-.hbt i{display:block;height:7px;border-radius:3px}
+.hbt{background:var(--mutebg);border-radius:4px;height:9px;display:block;overflow:hidden}
+.hbt i{display:block;height:9px;border-radius:4px}
 .hbt i.bad{background:var(--critical)}.hbt i.warn{background:var(--warning)}
-.hbt i.acc{background:var(--s1)}
-.hbv{text-align:right;color:var(--ink3);font-variant-numeric:tabular-nums}
-.note{font-size:12px;color:var(--ink3);margin:9px 0 0}
-code{font-family:ui-monospace,Menlo,monospace;font-size:11px;background:var(--mutebg);
-padding:1px 4px;border-radius:3px}
-footer{margin-top:32px;padding-top:13px;border-top:1px solid var(--line);
-font-size:11.5px;color:var(--ink3)}
+.hbt i.good{background:var(--good)}.hbt i.acc{background:var(--s1)}
+.hbv{text-align:right;color:var(--ink2);font-variant-numeric:tabular-nums}
+.note{font-size:13.5px;color:var(--ink2);margin:11px 0 0}
+code{font-family:"IBM Plex Mono",ui-monospace,Menlo,monospace;font-size:13px;
+background:var(--mutebg);padding:2px 5px;border-radius:4px}
+footer{margin-top:38px;padding-top:16px;border-top:1px solid var(--line);
+font-size:13px;color:var(--ink3)}
 .scroll{overflow-x:auto}
 #tip{position:fixed;z-index:60;pointer-events:none;opacity:0;background:var(--card);
-border:1px solid var(--line);border-radius:7px;padding:7px 10px;font-size:12px;
-box-shadow:0 4px 14px rgba(16,24,40,.13);max-width:250px}
-#tip b{font-size:14px;font-variant-numeric:tabular-nums}
-#tip .k{display:inline-block;width:11px;height:2.5px;border-radius:2px;margin-right:6px;
-vertical-align:3px}
+border:1px solid var(--line);border-radius:8px;padding:8px 11px;font-size:13.5px;
+box-shadow:0 6px 18px rgba(26,25,23,.16);max-width:270px}
+#tip b{font-size:15px;font-variant-numeric:tabular-nums}
+#tip .k{display:inline-block;width:12px;height:3px;border-radius:2px;margin-right:7px;vertical-align:4px}
 @media(prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 """
 
@@ -143,10 +140,18 @@ const D = window.__DATA__, NOWH = D.epoch_hours, OWNER = D.owner;
 const $ = s => document.querySelector(s), $$ = (s, r = document) => [...r.querySelectorAll(s)];
 const state = { days: 90, repo: "*", q: "" };
 
+// minutes -> "3h 20m". Rounding each repo to whole hours and summing those is
+// what made the total disagree with the rows; format once, at the end.
+const fmtDebt = m => !m ? "—" : m<60 ? m+"m" : (m%60 ? Math.floor(m/60)+"h "+(m%60)+"m" : Math.floor(m/60)+"h");
 const fmtDur = h => h == null ? "—" : h < 1 ? Math.round(h*60)+"m"
   : h < 48 ? h.toFixed(1)+"h" : (h/24).toFixed(1)+"d";
 const median = a => { if (!a.length) return null; const s=[...a].sort((x,y)=>x-y), m=s.length>>1;
   return s.length%2 ? s[m] : (s[m-1]+s[m])/2; };
+const ET = {timeZone:"America/New_York",month:"short",day:"numeric",
+  hour:"numeric",minute:"2-digit",timeZoneName:"short"};
+// epoch-hours -> a real Eastern timestamp; Intl applies EST/EDT from the tz
+// database, so daylight saving needs no special handling here.
+const absTime = h => new Date(Date.UTC(2020,0,1)+h*3600e3).toLocaleString(undefined,ET);
 const ageH = h => { const d = NOWH - h; return d>=24 ? Math.floor(d/24)+"d" : Math.max(d,0)+"h"; };
 const el = (t, cls, txt) => { const n=document.createElement(t); if(cls)n.className=cls;
   if(txt!=null)n.textContent=txt; return n; };
@@ -298,6 +303,7 @@ function sortable(table, rows, cols, defaultCol){
   let sortKey = table.dataset.sk || defaultCol, dir = table.dataset.sd || "desc";
   const thead=el("thead"), trh=el("tr");
   cols.forEach(c=>{ const th=el("th",(c.cls||"")+" s",c.label);
+    if(c.help) th.title=c.help;
     if(c.key===sortKey) th.dataset.dir=dir;
     th.tabIndex=0; th.setAttribute("role","button");
     const go=()=>{ if(sortKey===c.key) dir = dir==="asc"?"desc":"asc";
@@ -375,11 +381,24 @@ function render(){
   sortable($("#tFail"),fails,[
     {key:"repo",label:"Repo",cls:"mono",val:f=>f.repo,render:f=>link(f.repo,`https://github.com/${OWNER}/${f.repo}`)},
     {key:"wf",label:"Workflow",cls:"dim",val:f=>f.wf,render:f=>f.wf},
-    {key:"cause",label:"Caused by",val:f=>f.pr?f.pr.title:f.msg,render:f=>{const s=el("span");
+    {key:"status",label:"Status",val:f=>f.fixed_h?1:0,render:f=>{
+      if(!f.fixed_h){const p=el("span","pill critical");p.appendChild(el("b",null,"✕"));
+        p.appendChild(document.createTextNode("still failing"));return p;}
+      const p=el("span","pill good");p.appendChild(el("b",null,"✓"));
+      p.appendChild(document.createTextNode("fixed"));return p;}},
+    {key:"cause",label:"Broken by",val:f=>f.pr?f.pr.title:f.msg,render:f=>{const s=el("span");
       if(f.pr){s.appendChild(link("#"+f.pr.num,f.pr.url,"mono"));s.appendChild(document.createTextNode(" "+f.pr.title));}
       else{s.appendChild(el("span","mono dim",f.sha));s.appendChild(document.createTextNode(" "+f.msg));}return s;}},
-    {key:"when",label:"When",cls:"num mono dim",val:f=>-f.at_h,render:f=>link(ageH(f.at_h),f.url)},
-  ],"when");
+    {key:"fixedby",label:"Fixed by",val:f=>f.fixed_h?(f.fixed_by?f.fixed_by.num:1):-1,render:f=>{
+      if(!f.fixed_h) return el("span","dim","— not yet");
+      const s=el("span");
+      if(f.fixed_by){s.appendChild(link("#"+f.fixed_by.num,f.fixed_by.url,"mono"));
+        s.appendChild(document.createTextNode(" "+f.fixed_by.title.slice(0,38)));}
+      else s.appendChild(link(f.fixed_sha,f.fixed_url,"mono"));
+      return s;}},
+    {key:"when",label:"Failed",cls:"num mono dim",val:f=>-f.at_h,render:f=>{
+      const a=link(ageH(f.at_h)+" ago",f.url); a.title=absTime(f.at_h); return a;}},
+  ],"status");
 
   sortable($("#tRepo"),rs.map(r=>{
     const [lo,hi]=cut(); let o=0,m=0,lead=[],runs=0,fails=0;
@@ -392,11 +411,11 @@ function render(){
   }),[
     {key:"name",label:"Repo",cls:"mono",val:r=>r.name,render:r=>link(r.name,r.url)},
     {key:"lang",label:"Lang",cls:"dim",val:r=>r.lang,render:r=>r.lang},
-    {key:"open",label:"Open",cls:"num",val:r=>r.open_prs.length,render:r=>r.open_prs.length||"—"},
-    {key:"o",label:"Opened",cls:"num dim",val:r=>r._o,render:r=>r._o},
-    {key:"m",label:"Merged",cls:"num dim",val:r=>r._m,render:r=>r._m},
-    {key:"lead",label:"Lead",cls:"num mono",val:r=>r._lead??1e9,render:r=>fmtDur(r._lead)},
-    {key:"fr",label:"Fail %",cls:"num mono",val:r=>r._fr??-1,render:r=>r._fr==null?"—":r._fr.toFixed(0)+"%"},
+    {key:"open",label:"Open PRs",cls:"num",val:r=>r.open_prs.length,render:r=>r.open_prs.length||"—"},
+    {key:"o",label:"PRs opened",cls:"num dim",val:r=>r._o,render:r=>r._o},
+    {key:"m",label:"PRs merged",cls:"num dim",val:r=>r._m,render:r=>r._m},
+    {key:"lead",label:"Median merge time",help:"Median time from a pull request being opened to being merged, within the selected window. Blank when nothing merged.",cls:"num mono",val:r=>r._lead??1e9,render:r=>fmtDur(r._lead)},
+    {key:"fr",label:"CI failure rate",help:"Share of completed CI runs on the default branch that failed, within the selected window.",cls:"num mono",val:r=>r._fr??-1,render:r=>r._fr==null?"—":r._fr.toFixed(0)+"%"},
     {key:"ci",label:"CI",val:r=>r.ci_latest==="failure"?0:1,render:r=>ciPill(r.ci_latest)},
     {key:"alerts",label:"Alerts",cls:"num",val:r=>r._sev?r._sev.c*100+r._sev.h*10+r._sev.m:-1,
       render:r=>{ if(!r._sev)return el("span","dim","—"); const s=el("span");
@@ -404,8 +423,8 @@ function render(){
           if(v)s.appendChild(el("span","sev "+k,v)); });
         return s.childNodes.length?s:el("span","dim","0"); }},
     {key:"cq",label:"CodeQL",cls:"num",val:r=>r._cq??-1,render:r=>r._cq==null?el("span","dim","—"):String(r._cq)},
-    {key:"spark",label:state.days+"d",val:r=>r._o,render:r=>sparkFor(r)||el("span","dim","—")},
-    {key:"pushed",label:"Pushed",cls:"num mono dim",val:r=>-r.pushed_h,render:r=>ageH(r.pushed_h)},
+    {key:"spark",label:"PR activity",help:"Pull requests opened per bucket across the selected window. Shape only \u2014 the exact counts are in the PRs opened column.",val:r=>r._o,render:r=>sparkFor(r)||el("span","dim","—")},
+    {key:"pushed",label:"Last commit",help:"Time since the most recent push to any branch. Hover the value for the exact timestamp.",cls:"num mono dim",val:r=>-r.pushed_h,render:r=>{const sp=el("span",null,ageH(r.pushed_h)+" ago");sp.title=absTime(r.pushed_h);return sp;}},
   ],"alerts");
 
   paintCQ();
@@ -450,7 +469,7 @@ function paintCQ(){
     ["Coverage",(covN?covW/covN:0).toFixed(1)+"%","weighted by lines",null],
     ["Vulnerabilities",vuln,"all code, not just new",null],
     ["Bugs",bugs,"",null],
-    ["Code smells",smell,`${Math.round(debt/60)}h estimated debt`,null],
+    ["Code smells",smell,fmtDebt(debt)+" estimated debt",null],
     ["CodeQL",cq,"open security alerts",null],
   ]);
 
@@ -460,24 +479,24 @@ function paintCQ(){
     _s:num(r,"code_smells"),_d:num(r,"duplicated_lines_density"),
     _t:num(r,"sqale_index"),_q:r.codeql?r.codeql.total:null})),[
     {key:"name",label:"Repo",cls:"mono",val:r=>r.name,render:r=>link(r.name,`https://sonarcloud.io/project/overview?id=${OWNER}_${r.name}`)},
-    {key:"gate",label:"Gate",val:r=>r._g==="ERROR"?0:r._g==="OK"?2:1,render:r=>{
+    {key:"gate",label:"Gate",help:"SonarCloud quality gate. It judges NEW code only \u2014 a repository can pass while carrying findings on existing code.",val:r=>r._g==="ERROR"?0:r._g==="OK"?2:1,render:r=>{
       const m={OK:["good","✓","passing"],ERROR:["critical","✕","failing"]}[r._g]||["mute","–","no baseline"];
       const s=el("span","pill "+m[0]); s.appendChild(el("b",null,m[1]));
       s.appendChild(document.createTextNode(m[2])); return s;}},
-    {key:"cov",label:"Coverage",cls:"num mono",val:r=>r._c??-1,render:r=>r._c==null?el("span","dim","—"):r._c.toFixed(1)+"%"},
+    {key:"cov",label:"Coverage",help:"Line coverage as SonarCloud measures it. May differ from the CI figure when sonar.sources covers files the test run does not.",cls:"num mono",val:r=>r._c??-1,render:r=>r._c==null?el("span","dim","—"):r._c.toFixed(1)+"%"},
     {key:"ncloc",label:"Lines",cls:"num mono dim",val:r=>r._n,render:r=>r._n.toLocaleString()},
-    {key:"vuln",label:"Vuln",cls:"num",val:r=>r._v,render:r=>r._v?el("span","sev h",r._v):el("span","dim","0")},
+    {key:"vuln",label:"Vulnerabilities",help:"Open SonarCloud vulnerabilities across ALL code, not only new code.",cls:"num",val:r=>r._v,render:r=>r._v?el("span","sev h",r._v):el("span","dim","0")},
     {key:"bugs",label:"Bugs",cls:"num",val:r=>r._b,render:r=>r._b?el("span","sev m",r._b):el("span","dim","0")},
     {key:"smells",label:"Smells",cls:"num mono dim",val:r=>r._s,render:r=>String(r._s)},
-    {key:"dup",label:"Dup %",cls:"num mono dim",val:r=>r._d,render:r=>r._d.toFixed(1)},
-    {key:"debt",label:"Debt",cls:"num mono dim",val:r=>r._t,render:r=>r._t<60?"—":Math.round(r._t/60)+"h"},
+    {key:"dup",label:"Duplication",help:"Percentage of lines SonarCloud considers duplicated.",cls:"num mono dim",val:r=>r._d,render:r=>r._d.toFixed(1)},
+    {key:"debt",label:"Tech debt",help:"SonarCloud\u2019s estimated effort to remediate all code smells in this repository.",cls:"num mono dim",val:r=>r._t,render:r=>fmtDebt(r._t)},
     {key:"codeql",label:"CodeQL",cls:"num",val:r=>r._q??-1,render:r=>r._q==null?el("span","dim","—"):String(r._q)},
   ],"vuln");
 
   hbars($("#sqCov"),rs.filter(r=>r.sonar.measures.coverage!=null)
     .sort((a,b)=>num(b,"coverage")-num(a,"coverage"))
     .map(r=>[r.name,+num(r,"coverage").toFixed(1),
-      num(r,"coverage")<40?"bad":num(r,"coverage")<70?"warn":"acc",
+      num(r,"coverage")<40?"bad":num(r,"coverage")<70?"warn":"good",
       `https://sonarcloud.io/component_measures?id=${OWNER}_${r.name}&metric=coverage`]));
   hbars($("#sqIss"),rs.map(r=>[r.name,num(r,"vulnerabilities")+num(r,"bugs"),
       num(r,"vulnerabilities")?"bad":"warn",
@@ -510,7 +529,15 @@ render();
 """
 
 E = html.escape
-gen = D["generated"][:16].replace("T", " ")
+from datetime import datetime as _dt
+try:
+    from zoneinfo import ZoneInfo
+    _et = _dt.fromisoformat(D["generated"]).astimezone(ZoneInfo("America/New_York"))
+    # %Z yields EST or EDT automatically, so daylight saving is handled by the
+    # tz database rather than a hard-coded offset.
+    gen = _et.strftime("%d %b %Y, %-I:%M %p %Z")
+except Exception:
+    gen = D["generated"][:16].replace("T", " ") + " UTC"
 te = D.get("token_expiry")
 tok = ""
 if te:
@@ -529,6 +556,8 @@ HTML = f"""<!doctype html>
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>{E(OWNER)} — engineering dashboard</title>
 <meta name="description" content="Open PRs, delivery metrics, security alerts and code quality across every repository.">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
 <style>{CSS}</style></head><body>
 <div class="wrap">
 <header><h1>{E(OWNER)}</h1><span class="chip mono" id="chip"></span></header>
