@@ -192,9 +192,16 @@ function cut(back = 0) { return [NOWH - state.days*24*(back+1), NOWH - state.day
 function slice(back = 0) {
   const [lo, hi] = cut(back);
   let opened=0, merged=0, lead=[], runs=0, fails=0, aOpen=0, aFix=0, fixH=[];
+  // `opened` and `merged` count different cohorts on purpose: PRs CREATED in
+  // the window, and PRs MERGED in it, which are not the same set -- a pull
+  // request opened before the window and merged inside it lands in the second
+  // and not the first. Read as a funnel they look like broken arithmetic, so
+  // cohortMerged tracks the one thing that IS a funnel: of the pull requests
+  // opened in this window, how many were ever merged.
+  let cohortMerged=0;
   for (const r of repos()) {
     for (const [c,m] of r.pr_events) {
-      if (c>=lo && c<hi) opened++;
+      if (c>=lo && c<hi) { opened++; if (m>=0) cohortMerged++; }
       if (m>=0 && m>=lo && m<hi) { merged++; lead.push(m-c); }
     }
     for (const [c,o] of (r.run_events||[])) if (c>=lo && c<hi) { runs++; if(o===0) fails++; }
@@ -204,7 +211,7 @@ function slice(back = 0) {
       if (f>=0 && f>=lo && f<hi) { aFix++; fixH.push(f-c); }
     }
   }
-  return { opened, merged, lead, runs, fails, aOpen, aFix, fixH };
+  return { opened, merged, cohortMerged, lead, runs, fails, aOpen, aFix, fixH };
 }
 
 function openAlertSev() {
@@ -446,8 +453,11 @@ function render(){
   paintTiles($("#act"),[
     ["Repositories",rs.length,"",null],
     ["Open PRs",openPRs.length,"",null],
-    ["PRs opened",now.opened,`last ${state.days}d`,delta(now.opened,prev.opened)],
-    ["PRs merged",now.merged,`last ${state.days}d`,delta(now.merged,prev.merged)],
+    ["PRs opened",now.opened,
+      now.opened ? `last ${state.days}d · ${now.cohortMerged} merged, ${now.opened-now.cohortMerged} closed unmerged`
+                 : `last ${state.days}d`,
+      delta(now.opened,prev.opened)],
+    ["PRs merged",now.merged,`merged in the last ${state.days}d`,delta(now.merged,prev.merged)],
     ["Open alerts",sev?sev.c+sev.h+sev.m+sev.l:"—",sev?`${sev.c} critical · ${sev.h} high`:"",null],
     ["Alert fix time",fmtDur(median(now.fixH)),`median · n=${now.fixH.length}`,null],
   ]);
