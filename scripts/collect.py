@@ -8,6 +8,7 @@ Dependabot alerts (needs a PAT with security_events) yields None for that
 section rather than failing the build.
 """
 import json, os, sys, urllib.request, urllib.error, statistics
+from concurrent.futures import ThreadPoolExecutor
 from collections import defaultdict
 from datetime import datetime, timezone, timedelta
 
@@ -234,6 +235,16 @@ def collect_repo(r):
     return d
 
 
+def rate_budget():
+    """Remaining core-API quota. Guards against a large account silently
+    exhausting the hourly limit and producing a half-empty dashboard."""
+    d, err = gh("/rate_limit")
+    if err or not d:
+        return None
+    c = d.get("resources", {}).get("core", {})
+    return c.get("remaining"), c.get("limit")
+
+
 def main():
     repos, page = [], 1
     while True:
@@ -244,15 +255,34 @@ def main():
         if len(batch) < 100:
             break
         page += 1
+    budget = rate_budget()
+    if budget and budget[0] is not None:
+        need = len(repos) * 6 + 2
+        if budget[0] < need:
+            print(f"Rate limit too low ({budget[0]}/{budget[1]} left, need ~{need}) — "
+                  f"refusing to build a partial dashboard.", file=sys.stderr)
+            sys.exit(1)
+
     repos = [r for r in repos if not r.get("archived")]
     if not repos:
         print("No repos returned — aborting rather than emitting an empty dataset.", file=sys.stderr)
         sys.exit(1)
 
+    # Collection is latency-bound, not CPU-bound: ~6 sequential HTTP round
+    # trips per repo, each mostly spent waiting. Sequentially that is O(n)
+    # wall-clock and hits ~7.6 min at 200 repos. A bounded pool makes it
+    # O(n / workers) while keeping concurrent requests low enough not to
+    # trip secondary rate limits. Bounded, not unbounded: an unbounded pool
+    # over hundreds of repos would open hundreds of sockets and get throttled.
+    workers = max(1, min(int(os.environ.get("COLLECT_WORKERS", "8")), len(repos)))
+    with ThreadPoolExecutor(max_workers=workers) as pool:
+        collected = list(pool.map(collect_repo, repos))   # map preserves input order
+
     data = {"owner": OWNER, "generated": NOW.isoformat(), "window_days": WINDOW_DAYS,
             "epoch_hours": int((NOW - EPOCH).total_seconds() // 3600),
             "token_expiry": TOKEN_EXPIRY[0] if TOKEN_EXPIRY else None,
-            "repos": [collect_repo(r) for r in repos]}
+            "workers": workers,
+            "repos": collected}
     out = os.path.join(os.path.dirname(__file__), "..", "data.json")
     with open(out, "w") as f:
         json.dump(data, f)
