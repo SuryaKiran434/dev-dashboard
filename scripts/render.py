@@ -280,27 +280,74 @@ function drawBars(host, buckets, labels, names, colors) {
   host.appendChild(svg);
 }
 
-function timeBuckets() {
-  // 12 buckets across whatever window is selected
-  const n=12, span=state.days*24/n, [lo]=cut();
-  const lab=[], po=Array(n).fill(0), pm=Array(n).fill(0), ao=Array(n).fill(0), af=Array(n).fill(0);
-  for(let i=0;i<n;i++){
-    const endH = lo + span*(i+1);
-    const d = new Date(Date.UTC(2020,0,1) + endH*3600e3);
-    lab.push(state.days<=14 ? d.toLocaleDateString(undefined,{weekday:"short"})
-      : d.toLocaleDateString(undefined,{day:"numeric",month:"short"}));
+/* ---------- day-aligned buckets ----------
+   Bars are whole Eastern calendar days. They used to be twelve equal slices of
+   the window, which on a 7-day view made each bar 14 hours wide -- so the
+   labels repeated ("Mon Mon Tue Wed Wed Thu Thu Fri Fri Sat Sun Sun"), and
+   each bar was named after the day it ENDED in. A bucket running Sat 13:00 to
+   Sun 03:00 was therefore labelled "Sun", which is how 204 pull requests
+   opened on Saturday came to sit under Sunday with Saturday reading empty. */
+
+const ET_DAY = {timeZone:"America/New_York",year:"numeric",month:"2-digit",day:"2-digit"};
+const etDayFmt = new Intl.DateTimeFormat("en-CA", ET_DAY);   // -> "2026-08-29"
+const dayKeyOf = h => etDayFmt.format(new Date(Date.UTC(2020,0,1) + h*3600e3));
+
+// Stepping a UTC date at noon means no daylight-saving shift can ever move the
+// walk across a day boundary, which stepping at midnight would.
+function dayKeysBetween(loH, hiH) {
+  const end = dayKeyOf(hiH), keys = [];
+  const [y,m,d] = dayKeyOf(loH).split("-").map(Number);
+  const cur = new Date(Date.UTC(y, m-1, d, 12));
+  for (let i=0; i<400; i++) {
+    const k = etDayFmt.format(cur); keys.push(k);
+    if (k === end) break;
+    cur.setUTCDate(cur.getUTCDate()+1);
   }
-  const idx = h => Math.min(n-1, Math.max(0, Math.floor((h-lo)/span)));
+  return keys;
+}
+
+// Cached per render: sparkFor() runs once per repository and would otherwise
+// rebuild the same plan on every row.
+let PLAN = null;
+
+function bucketPlan() {
+  const [lo, hi] = cut();
+  const days = dayKeysBetween(lo, hi);
+  // Whole days per bar, so a bar never straddles a midnight. Twelve bars is the
+  // target width, not a rule -- 7 days gives 8 one-day bars, 90 gives 12 of
+  // eight days each.
+  const per = Math.ceil(days.length / 12);
+  const n = Math.ceil(days.length / per);
+  const idxOf = new Map(days.map((k,i) => [k, Math.floor(i/per)]));
+
+  // Dated rather than named. Every window on offer spans more than one of some
+  // weekday, so "Sat" would be ambiguous about which Saturday it meant -- and a
+  // bar grouping several days has no single weekday to be named after.
+  const lab = [];
+  for (let i=0; i<n; i++) {
+    const [y,m,d] = days[i*per].split("-").map(Number);
+    lab.push(new Date(Date.UTC(y,m-1,d,12)).toLocaleDateString(undefined,
+      {day:"numeric", month:"short", timeZone:"America/New_York"}));
+  }
+  return {n, per, idxOf, lab};
+}
+
+function timeBuckets() {
+  const {n, idxOf, lab} = PLAN;
+  const po=Array(n).fill(0), pm=Array(n).fill(0), ao=Array(n).fill(0), af=Array(n).fill(0);
+  // Events outside the window are simply absent from idxOf, so the lookup is
+  // also the window filter -- and the bars therefore sum to the tiles above.
+  const put = (arr,h) => { const i = idxOf.get(dayKeyOf(h)); if (i !== undefined) arr[i]++; };
   for(const r of repos()){
-    for(const [c,m] of r.pr_events){ if(c>=lo) po[idx(c)]++; if(m>=0&&m>=lo) pm[idx(m)]++; }
-    if(r.alerts) for(const [c,f] of r.alerts.events){ if(c>=lo) ao[idx(c)]++; if(f>=0&&f>=lo) af[idx(f)]++; }
+    for(const [c,m] of r.pr_events){ put(po,c); if(m>=0) put(pm,m); }
+    if(r.alerts) for(const [c,f] of r.alerts.events){ put(ao,c); if(f>=0) put(af,f); }
   }
   return {lab, po, pm, ao, af};
 }
 
 function sparkFor(r){
-  const n=12, [lo]=cut(), span=state.days*24/n, v=Array(n).fill(0);
-  for(const [c] of r.pr_events) if(c>=lo) v[Math.min(n-1,Math.floor((c-lo)/span))]++;
+  const {n, idxOf} = PLAN, v=Array(n).fill(0);
+  for(const [c] of r.pr_events){ const i=idxOf.get(dayKeyOf(c)); if(i!==undefined) v[i]++; }
   if(!v.some(Boolean)) return null;
   const top=Math.max(...v), NS="http://www.w3.org/2000/svg";
   const svg=document.createElementNS(NS,"svg");
@@ -364,6 +411,7 @@ const link=(t,h,cls)=>{ const a=el("a",cls,t); a.href=h; return a; };
 
 /* ---------- render ---------- */
 function render(){
+  PLAN = bucketPlan();
   const now=slice(0), prev=slice(1), rs=repos();
   const wkDiv=state.days/7;
   const sev=openAlertSev();
@@ -770,11 +818,11 @@ HTML = f"""<!doctype html>
 
 <div class="two">
   <div class="panel"><h2 style="margin:0 0 2px">Pull requests</h2>
-    <p class="cap">Opened vs merged across the selected window.</p>
+    <p class="cap">Opened vs merged. Each bar is a whole day in Eastern time, grouped into blocks when the window is long.</p>
     <div id="chPR"></div>
     <div class="legend"><span><i style="background:var(--s1)"></i>Opened</span><span><i style="background:var(--s2)"></i>Merged</span></div></div>
   <div class="panel"><h2 style="margin:0 0 2px">Dependabot alerts</h2>
-    <p class="cap">Raised vs resolved (fixed or dismissed).</p>
+    <p class="cap">Raised vs resolved (fixed or dismissed), on the same day bars.</p>
     <div id="chAL"></div>
     <div class="legend"><span><i style="background:var(--s1)"></i>Raised</span><span><i style="background:var(--s2)"></i>Resolved</span></div></div>
 </div>
