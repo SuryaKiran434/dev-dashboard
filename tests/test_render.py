@@ -168,8 +168,24 @@ def test_owner_is_shown(data):
     page = render.build_html(data)
     assert "<title>AcmeOrg — engineering dashboard</title>" in page
     assert "<h1>AcmeOrg</h1>" in page
-    # the localStorage warning names the Pages origin, lower-cased
-    assert "acmeorg.github.io" in page
+
+
+def test_shared_origin_warning_names_the_pages_origin(data):
+    """The token panel warns that everything on the Pages origin can read the
+    saved PAT, so it has to name that origin: the owner, lower-cased, in its
+    own <code> span inside that sentence.
+
+    Matched as a whole phrase with the host extracted and compared exactly --
+    looking for the bare hostname anywhere in the page would pass on any
+    incidental occurrence and would assert nothing about the warning.
+    """
+    page = render.build_html(data)
+    m = re.search(
+        r"Note that every page under\s+<code>([^<]*)</code> shares one origin and can read it\.",
+        page,
+    )
+    assert m, "the shared-origin warning is missing from the token panel"
+    assert m.group(1) == data["owner"].lower() + ".github.io"
 
 
 def test_generated_time_is_shown(data):
