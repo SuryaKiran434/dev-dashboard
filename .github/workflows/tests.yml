@@ -1,0 +1,40 @@
+name: Tests
+
+# The PR gate this repo was missing. render.py writes the live Pages output, so
+# until now a bug in it deployed straight to the published page with nothing in
+# between. This runs on every pull request so main can require it.
+#
+# The job name below is the status-check context: it must stay exactly
+# "Tests (Python)" to match the ruleset contexts used across the other repos.
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+# A newer push to the same PR supersedes an in-flight run.
+concurrency:
+  group: tests-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  tests:
+    name: Tests (Python)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.12'
+
+      - name: Install dev dependencies
+        run: python3 -m pip install --disable-pip-version-check -r requirements-dev.txt
+
+      # The suite is fully offline: it feeds render.py a fixture rather than the
+      # committed data.json, and only touches collect.py's pure helpers.
+      - name: Run tests
+        run: python3 -m pytest tests -q
