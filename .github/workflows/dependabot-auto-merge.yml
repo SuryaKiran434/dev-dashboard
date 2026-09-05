@@ -3,17 +3,13 @@ name: Dependabot auto-merge
 # Merges Dependabot's routine updates so patch and minor bumps stop
 # accumulating in the review queue.
 #
-# NOTE -- this repo differs from the others. Every other repo waits for a
-# required status check via `gh pr merge --auto`; main here has no ruleset and
-# no PR-triggered check, and GitHub refuses to queue auto-merge on a PR that
-# nothing is blocking. So this merges directly on open. The only ecosystem
-# watched here is github-actions, and a bad bump surfaces as a failed "Build
-# dashboard" run on main rather than as a blocked PR. If main ever gains a
-# required check, switch this step to `gh pr merge --auto --squash` to match
-# the other repos.
+# Queues the merge for GitHub to perform once the required `Tests (Python)`
+# check passes. This repo used to merge directly, because main had no ruleset
+# and no PR-triggered check and GitHub refuses to queue auto-merge on a PR that
+# nothing is blocking. It now has both, so it behaves like every other repo.
 #
-# Majors are excluded either way: they are the updates that can require a code
-# change on our side.
+# Majors are excluded: they are the updates that can require a code change on
+# our side.
 
 on: pull_request
 
@@ -38,9 +34,9 @@ jobs:
 
       # For a grouped PR, update-type is the HIGHEST bump in the batch, so a
       # single major holds the whole PR back rather than riding along unseen.
-      - name: Merge patch and minor updates
+      - name: Enable auto-merge for patch and minor updates
         if: steps.meta.outputs.update-type != 'version-update:semver-major'
         env:
           PR_URL: ${{ github.event.pull_request.html_url }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh pr merge --squash "$PR_URL"
+        run: gh pr merge --auto --squash "$PR_URL"
