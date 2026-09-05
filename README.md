@@ -39,6 +39,26 @@ open index.html
 `render.py` needs no token and no network: it reads `data.json` and nothing else,
 so iterating on the page costs no API quota.
 
+## Tests
+
+```bash
+pip install -r requirements-dev.txt
+python3 -m pytest tests -q                             # 77 tests
+```
+
+`.github/workflows/tests.yml` runs them on every pull request as **`Tests
+(Python)`**, which is a *required* status check on `main` — a red test blocks the
+merge. Before that check existed this repo had no PR gate at all, so a bug in
+`render.py` deployed straight to the live page; it also meant GitHub would not
+queue auto-merge on Dependabot PRs here, because auto-merge can only be queued on
+a PR that something is blocking.
+
+Most of the suite covers `render.py` against a fixture payload rather than the
+committed `data.json`, so the tests do not drift each time the dashboard
+rebuilds. Only the offline helpers of `collect.py` are tested — it is the half
+that talks to the network, and the tests assert that neither module performs any
+I/O at import time.
+
 ## Metrics
 
 **Delivery (DORA proxies).** There is no deploy pipeline in these repos, so
