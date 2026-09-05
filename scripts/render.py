@@ -8,10 +8,11 @@ window or sorting a column is instant and costs no network. Zero external
 requests — no web fonts, no CDN, no analytics.
 """
 import json, os, html
+from datetime import datetime as _dt, datetime, timezone
 
 HERE = os.path.dirname(__file__)
-D = json.load(open(os.path.join(HERE, "..", "data.json")))
-OWNER = D["owner"]
+DATA_PATH = os.path.join(HERE, "..", "data.json")
+OUT_PATH = os.path.join(HERE, "..", "index.html")
 
 CSS = """
 *{box-sizing:border-box}
@@ -771,29 +772,41 @@ rbForget.hidden = !RB.token;
 """
 
 E = html.escape
-from datetime import datetime as _dt
-try:
-    from zoneinfo import ZoneInfo
-    _et = _dt.fromisoformat(D["generated"]).astimezone(ZoneInfo("America/New_York"))
-    # %Z yields EST or EDT automatically, so daylight saving is handled by the
-    # tz database rather than a hard-coded offset.
-    gen = _et.strftime("%d %b %Y, %-I:%M %p %Z")
-except Exception:
-    gen = D["generated"][:16].replace("T", " ") + " UTC"
-te = D.get("token_expiry")
-tok = ""
-if te:
-    from datetime import datetime, timezone
+
+
+def generated_stamp(D):
+    """Human-readable build time in Eastern time, with a UTC fallback."""
+    try:
+        from zoneinfo import ZoneInfo
+        _et = _dt.fromisoformat(D["generated"]).astimezone(ZoneInfo("America/New_York"))
+        # %Z yields EST or EDT automatically, so daylight saving is handled by the
+        # tz database rather than a hard-coded offset.
+        return _et.strftime("%d %b %Y, %-I:%M %p %Z")
+    except Exception:
+        return D["generated"][:16].replace("T", " ") + " UTC"
+
+
+def token_note(D):
+    """Countdown to build-token expiry, or "" when the collector did not report one."""
+    te = D.get("token_expiry")
+    if not te:
+        return ""
     try:
         d = datetime.strptime(te.split(" ")[0], "%Y-%m-%d").replace(tzinfo=timezone.utc)
         left = (d - datetime.now(timezone.utc)).days
-        tok = (f'<p class="note">{"⚠ " if left < 21 else ""}Build token '
-               f'{"expires in <b>%d days</b>" % left if left < 21 else "valid for %d more days" % left} '
-               f'({d.strftime("%d %b %Y")}).</p>')
+        return (f'<p class="note">{"⚠ " if left < 21 else ""}Build token '
+                f'{"expires in <b>%d days</b>" % left if left < 21 else "valid for %d more days" % left} '
+                f'({d.strftime("%d %b %Y")}).</p>')
     except Exception:
-        pass
+        return ""
 
-HTML = f"""<!doctype html>
+
+def build_html(D):
+    """Render a data.json payload into the complete self-contained page."""
+    OWNER = D["owner"]
+    gen = generated_stamp(D)
+    tok = token_note(D)
+    return f"""<!doctype html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>{E(OWNER)} — engineering dashboard</title>
@@ -889,6 +902,15 @@ GitHub throttles frequent schedules on free public repositories, so hourly is th
 <script>{JS}</script>
 </body></html>"""
 
-with open(os.path.join(HERE, "..", "index.html"), "w") as f:
-    f.write(HTML)
-print(f"rendered {len(HTML)} bytes")
+
+def main():
+    with open(DATA_PATH) as f:
+        D = json.load(f)
+    HTML = build_html(D)
+    with open(OUT_PATH, "w") as f:
+        f.write(HTML)
+    print(f"rendered {len(HTML)} bytes")
+
+
+if __name__ == "__main__":
+    main()
