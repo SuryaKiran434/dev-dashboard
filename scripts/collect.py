@@ -253,6 +253,29 @@ def collect_repo(r):
             rules[(a.get("rule") or {}).get("description", "?")[:70]] += 1
         d["codeql"] = {"buckets": buckets, "total": len(scan or []),
                        "top": sorted(rules.items(), key=lambda x: -x[1])[:5]}
+    # ---- Secret scanning -------------------------------------------------
+    # The one security surface the dashboard had no visibility into. Same
+    # failure posture as code scanning: 404 = not enabled on this repo,
+    # 403 = token lacks permission. Either is "nothing to report", never a
+    # build failure -- a dashboard that dies because one repo has a feature
+    # switched off is worse than one that reports a gap.
+    sec, secerr = gh_cursor(f"/repos/{OWNER}/{name}/secret-scanning/alerts?state=open")
+    if secerr:
+        # GitHub answers 404 with "Secret scanning is disabled on this
+        # repository" -- that is a FINDING, not a failure, and the more useful
+        # of the two signals: a repo nobody is scanning reports zero secrets
+        # for the wrong reason. 403 means the token cannot see it. Record
+        # which, so the page can distinguish "clean" from "never looked".
+        d["secrets"] = {"total": 0, "top": [],
+                        "status": "disabled" if secerr == "404"
+                        else "no-access" if secerr == "403" else "error"}
+    else:
+        kinds = defaultdict(int)
+        for a in (sec or []):
+            kinds[a.get("secret_type_display_name") or a.get("secret_type") or "?"] += 1
+        d["secrets"] = {"total": len(sec or []), "status": "enabled",
+                        "top": sorted(kinds.items(), key=lambda x: -x[1])[:5]}
+
     # ---- SonarCloud ------------------------------------------------------
     # Public projects answer unauthenticated, so this needs no extra secret.
     d["sonar"] = None
