@@ -17,149 +17,195 @@ OUT_PATH = os.path.join(HERE, "..", "index.html")
 CSS = """
 *{box-sizing:border-box}
 :root{color-scheme:light;
-/* warm neutral ground rather than the cold blue-grey; cards sit brighter than it */
---bg:#F6F5F3;--card:#FFFFFF;--card2:#FAF9F7;--ink:#1A1917;--ink2:#57544E;--ink3:#8A857D;
---line:#E4E1DB;--line2:#EEEBE6;--accent:#1F6FEB;--s1:#2a78d6;--s2:#eb6834;
---good:#137333;--warning:#9A6400;--critical:#B3261E;--mute:#6B6862;
---goodbg:#E3F1E6;--warnbg:#FBF0D9;--critbg:#FBE6E4;--mutebg:#EFEDE9;--grid:#E9E6E1;
---shadow:0 1px 2px rgba(26,25,23,.06),0 1px 3px rgba(26,25,23,.04)}
+/* Surfaces — light ground, white cards, in the Devias/Minimal idiom */
+--bg:#F9FAFB;--card:#FFFFFF;--card2:#F4F6F8;--ink:#212B36;--ink2:#637381;--ink3:#919EAB;
+--line:#EDF0F2;--line2:#F4F6F8;--grid:#EDF0F2;
+--accent:#2C66A3;--s1:#3169A6;--s2:#B76E00;
+/* Magnitude ramp — computed, not picked. Validated light: monotone L,
+   adjacent dL>=0.06, light end 2.09:1 vs surface, hue spread 4deg. */
+--m1:#82B4E5;--m2:#619CD7;--m3:#4382C4;--m4:#2C66A3;--m5:#1E4F82;--m6:#12385F;
+/* Status — reserved, never reused as a series colour */
+--good:#22A06B;--warning:#B76E00;--critical:#B71D18;--mute:#637381;
+--goodbg:#DCF6E9;--warnbg:#FFF3D6;--critbg:#FFE9E7;--mutebg:#F4F6F8;
+--sh:0 0 2px rgba(145,158,171,.20),0 12px 24px -4px rgba(145,158,171,.12);
+--sh-lift:0 0 2px rgba(145,158,171,.24),0 20px 40px -8px rgba(145,158,171,.24);
+--shadow:var(--sh);--r:16px}
 @media(prefers-color-scheme:dark){:root:not([data-theme=light]){color-scheme:dark;
---bg:#16181C;--card:#1F2229;--card2:#252932;--ink:#EDEDEB;--ink2:#B4B2AD;--ink3:#84827D;
---line:#2E323B;--line2:#262A32;--accent:#6BA5F7;--s1:#539bf5;--s2:#e0713d;
---good:#4CAF6D;--warning:#D6A54A;--critical:#EE6C63;--mute:#8B8882;
---goodbg:#16301F;--warnbg:#2E2718;--critbg:#31191A;--mutebg:#262A32;--grid:#282C34;
---shadow:0 1px 2px rgba(0,0,0,.35)}}
+--bg:#161C24;--card:#212B36;--card2:#1C242E;--ink:#F9FAFB;--ink2:#919EAB;--ink3:#637381;
+--line:#2A3541;--line2:#232D38;--grid:#2A3541;
+--accent:#6BAFDD;--s1:#5199CE;--s2:#E0A93D;
+/* Validated dark: light end 2.17:1 vs #161C24, monotone, hue spread 10deg */
+--m1:#2E5478;--m2:#386A97;--m3:#4381B6;--m4:#5199CE;--m5:#70B4E1;--m6:#98CAEE;
+--good:#5BE49B;--warning:#FFD666;--critical:#FF8A80;--mute:#919EAB;
+--goodbg:#123D2B;--warnbg:#3D3117;--critbg:#3D1D1B;--mutebg:#1C242E;
+--sh:0 0 2px rgba(0,0,0,.32),0 12px 24px -4px rgba(0,0,0,.42);
+--sh-lift:0 0 2px rgba(0,0,0,.4),0 20px 40px -8px rgba(0,0,0,.55)}}
 :root[data-theme=dark]{color-scheme:dark;
---bg:#16181C;--card:#1F2229;--card2:#252932;--ink:#EDEDEB;--ink2:#B4B2AD;--ink3:#84827D;
---line:#2E323B;--line2:#262A32;--accent:#6BA5F7;--s1:#539bf5;--s2:#e0713d;
---good:#4CAF6D;--warning:#D6A54A;--critical:#EE6C63;--mute:#8B8882;
---goodbg:#16301F;--warnbg:#2E2718;--critbg:#31191A;--mutebg:#262A32;--grid:#282C34;
---shadow:0 1px 2px rgba(0,0,0,.35)}
-body{margin:0;background:var(--bg);color:var(--ink);
-font:16px/1.55 "IBM Plex Sans","Segoe UI",-apple-system,BlinkMacSystemFont,Roboto,Helvetica,Arial,sans-serif;
+--bg:#161C24;--card:#212B36;--card2:#1C242E;--ink:#F9FAFB;--ink2:#919EAB;--ink3:#637381;
+--line:#2A3541;--line2:#232D38;--grid:#2A3541;
+--accent:#6BAFDD;--s1:#5199CE;--s2:#E0A93D;
+--m1:#2E5478;--m2:#386A97;--m3:#4381B6;--m4:#5199CE;--m5:#70B4E1;--m6:#98CAEE;
+--good:#5BE49B;--warning:#FFD666;--critical:#FF8A80;--mute:#919EAB;
+--goodbg:#123D2B;--warnbg:#3D3117;--critbg:#3D1D1B;--mutebg:#1C242E;
+--sh:0 0 2px rgba(0,0,0,.32),0 12px 24px -4px rgba(0,0,0,.42);
+--sh-lift:0 0 2px rgba(0,0,0,.4),0 20px 40px -8px rgba(0,0,0,.55)}
+html,body{background:var(--bg)}
+body{margin:0;color:var(--ink);
+font:15px/1.55 "Public Sans","IBM Plex Sans",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
 -webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
-.wrap{max-width:1280px;margin:0 auto;padding:28px 22px 76px}
-header{display:flex;align-items:baseline;gap:13px;flex-wrap:wrap;margin-bottom:5px}
-.rbwrap{margin-left:auto;align-self:center;display:flex;align-items:center;gap:9px}
-.rebuild{font:inherit;font-size:13.5px;font-weight:500;cursor:pointer;
-color:var(--ink2);background:var(--card);border:1px solid var(--line);border-radius:7px;
-padding:5px 11px;white-space:nowrap;transition:border-color .15s,color .15s,background .15s}
-.rebuild:hover:not([disabled]),.rebuild:focus-visible{color:var(--ink);border-color:var(--ink3);background:var(--mutebg)}
-.rebuild[disabled]{cursor:progress;opacity:.7}
+.wrap{max-width:1320px;margin:0 auto;padding:32px 24px 80px}
+
+/* ── motion ─────────────────────────────────────────────── */
+@keyframes rise{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(.8)}}
+.tile,.panel,table,.pat{animation:rise .55s cubic-bezier(.22,.9,.28,1) both}
+.tile:nth-child(2),.panel:nth-child(2){animation-delay:.06s}
+.tile:nth-child(3){animation-delay:.12s}.tile:nth-child(4){animation-delay:.18s}
+.tile:nth-child(5){animation-delay:.24s}.tile:nth-child(6){animation-delay:.3s}
+
+header{display:flex;align-items:flex-end;gap:16px;flex-wrap:wrap;margin-bottom:4px}
+h1{font-size:1.6rem;font-weight:800;letter-spacing:-.03em;margin:0}
+.sub{color:var(--ink2);font-size:13.5px;margin:4px 0 24px;display:flex;align-items:center;gap:8px}
+.sub::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--good);
+animation:pulse 2.2s ease-in-out infinite;flex:none}
+.mono{font-family:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+
+/* ── rebuild control ────────────────────────────────────── */
+.rbwrap{margin-left:auto;align-self:center;display:flex;align-items:center;gap:8px}
+.rebuild{font:inherit;font-size:13.5px;font-weight:700;cursor:pointer;color:#fff;
+background:var(--accent);border:0;border-radius:10px;padding:9px 16px;white-space:nowrap;
+box-shadow:0 8px 16px -8px color-mix(in oklab,var(--accent) 90%,transparent);
+transition:transform .18s,box-shadow .18s,filter .18s}
+.rebuild:hover:not([disabled]){transform:translateY(-2px);filter:brightness(1.08);
+box-shadow:0 14px 22px -10px color-mix(in oklab,var(--accent) 90%,transparent)}
+.rebuild[disabled]{cursor:progress;opacity:.65}
 .rbkey{font:inherit;font-size:12.5px;cursor:pointer;color:var(--ink3);background:none;
-border:0;padding:2px 3px;text-decoration:underline;text-underline-offset:2px}
+border:0;padding:4px;text-decoration:underline;text-underline-offset:2px}
 .rbkey:hover{color:var(--ink2)}
 .rbstat{font-size:13px;color:var(--ink3);white-space:nowrap;font-variant-numeric:tabular-nums}
 .rbstat.bad{color:var(--critical)}
 .rbstat a{color:inherit}
-.pat{background:var(--card);border:1px solid var(--line);border-radius:10px;
-padding:15px 17px;margin:0 0 18px;box-shadow:var(--shadow);max-width:660px}
-.pat p{margin:0 0 11px;font-size:14px;color:var(--ink2);line-height:1.5}
+.pat{background:var(--card);border-radius:var(--r);padding:20px;margin:0 0 20px;
+box-shadow:var(--sh);max-width:680px}
+.pat p{margin:0 0 12px;font-size:14px;color:var(--ink2);line-height:1.5}
 .pat p:last-child{margin-bottom:0}
-.pat code{font-family:"IBM Plex Mono",ui-monospace,Menlo,monospace;font-size:12.5px;
-background:var(--mutebg);padding:1px 5px;border-radius:4px}
-.patrow{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:11px}
-.patrow input{flex:1 1 260px;font:inherit;font-size:13.5px;padding:6px 10px;
-border:1px solid var(--line);border-radius:7px;background:var(--card2);color:var(--ink)}
-.patrow button{font:inherit;font-size:13.5px;font-weight:500;cursor:pointer;padding:6px 13px;
-border-radius:7px;border:1px solid var(--accent);background:var(--accent);color:#fff}
-.patrow button.ghost{background:none;color:var(--ink2);border-color:var(--line)}
+.patrow{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+.patrow input{flex:1 1 260px;font:inherit;font-size:13.5px;padding:10px 12px;
+border:1px solid var(--line);border-radius:10px;background:var(--card2);color:var(--ink)}
+.patrow button{font:inherit;font-size:13.5px;font-weight:700;cursor:pointer;padding:10px 16px;
+border-radius:10px;border:0;background:var(--accent);color:#fff}
+.patrow button.ghost{background:var(--card2);color:var(--ink2)}
 .patnote{font-size:12.5px!important;color:var(--ink3)!important}
-h1{font-size:1.72rem;font-weight:600;letter-spacing:-.02em;margin:0}
-.sub{color:var(--ink2);font-size:14px;margin:0 0 20px}
-.mono{font-family:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
 
-.bar{position:sticky;top:0;z-index:20;background:var(--bg);padding:11px 0 13px;
-margin-bottom:18px;border-bottom:1px solid var(--line);display:flex;gap:10px;
-align-items:center;flex-wrap:wrap}
-.seg{display:inline-flex;background:var(--mutebg);border-radius:8px;padding:3px}
-.seg button{border:0;background:none;color:var(--ink2);font:inherit;font-size:14px;
-font-weight:500;padding:5px 13px;border-radius:6px;cursor:pointer}
-.seg button[aria-pressed=true]{background:var(--card);color:var(--ink);box-shadow:var(--shadow);font-weight:600}
-.seg button:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
-select,input[type=search]{font:inherit;font-size:14px;padding:6px 11px;border:1px solid var(--line);
-border-radius:8px;background:var(--card);color:var(--ink);min-width:0}
-input[type=search]{width:210px}
-select:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline-offset:-1px}
+/* ── filter bar ─────────────────────────────────────────── */
+.bar{position:sticky;top:0;z-index:20;background:color-mix(in oklab,var(--bg) 88%,transparent);
+backdrop-filter:blur(8px);padding:12px 0 16px;margin-bottom:20px;
+border-bottom:1px solid var(--line);display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.seg{display:inline-flex;background:var(--card);border-radius:12px;padding:4px;box-shadow:var(--sh)}
+.seg button{border:0;background:none;color:var(--ink2);font:inherit;font-size:13.5px;
+font-weight:600;padding:7px 15px;border-radius:9px;cursor:pointer;transition:background .2s,color .2s}
+.seg button[aria-pressed=true]{background:var(--accent);color:#fff}
+select,input[type=search]{font:inherit;font-size:13.5px;padding:9px 13px;border:1px solid var(--line);
+border-radius:10px;background:var(--card);color:var(--ink);min-width:0;box-shadow:var(--sh)}
+input[type=search]{width:230px}
+.seg button:focus-visible,select:focus-visible,input:focus-visible,.rebuild:focus-visible,
+.rbkey:focus-visible,th.s:focus-visible,.bar-m:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .spacer{flex:1}
 .chip{font-size:13px;color:var(--ink3);white-space:nowrap}
 
-h2{font-size:1.02rem;font-weight:600;margin:30px 0 4px;letter-spacing:-.008em;color:var(--ink)}
-.cap{font-size:13.5px;color:var(--ink2);margin:0 0 13px;max-width:86ch}
+h2{font-size:1.14rem;font-weight:700;margin:36px 0 4px;letter-spacing:-.02em;color:var(--ink)}
+.cap{font-size:13.5px;color:var(--ink2);margin:0 0 16px;max-width:86ch}
 
-.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(168px,1fr));gap:11px}
-.tile{background:var(--card);border:1px solid var(--line);border-radius:10px;
-padding:14px 16px;box-shadow:var(--shadow)}
-.tile b{display:block;font-size:28px;font-weight:600;letter-spacing:-.022em;
-font-variant-numeric:tabular-nums;line-height:1.2}
+/* ── stat tiles ─────────────────────────────────────────── */
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px}
+.tile{background:var(--card);border-radius:var(--r);padding:20px;box-shadow:var(--sh);
+transition:transform .28s cubic-bezier(.22,.9,.28,1),box-shadow .28s}
+.tile:hover{transform:translateY(-4px);box-shadow:var(--sh-lift)}
+/* Flex + wrap so a long value and its delta badge can never overflow the
+   card: the badge drops to its own line instead of pushing past the edge. */
+.tile b{display:flex;align-items:baseline;flex-wrap:wrap;gap:4px 8px;
+font-size:2.1rem;font-weight:800;letter-spacing:-.04em;
+font-variant-numeric:tabular-nums;line-height:1.1;margin:8px 0 2px;
+min-width:0;overflow-wrap:anywhere}
 .tile span{font-size:12px;color:var(--ink3);text-transform:uppercase;
-letter-spacing:.05em;font-weight:600}
-.tile em{font-style:normal;font-size:12.5px;color:var(--ink3);display:block;margin-top:2px}
-.delta{font-size:12.5px;font-weight:600;margin-left:7px;vertical-align:2px}
-.delta.up{color:var(--good)}.delta.down{color:var(--critical)}.delta.flat{color:var(--ink3)}
+letter-spacing:.08em;font-weight:700}
+.tile em{font-style:normal;font-size:12.5px;color:var(--ink3);display:block;margin-top:4px}
+.delta{font-size:12.5px;font-weight:700;padding:3px 8px;border-radius:99px;
+letter-spacing:0;white-space:nowrap;flex:none;align-self:center}
+.delta.up{color:var(--good);background:var(--goodbg)}
+.delta.down{color:var(--critical);background:var(--critbg)}
+.delta.flat{color:var(--ink2);background:var(--mutebg)}
 
-.panel{background:var(--card);border:1px solid var(--line);border-radius:10px;
-padding:16px 18px;box-shadow:var(--shadow)}
-.two{display:grid;grid-template-columns:1fr 1fr;gap:13px;margin-top:13px}
+.panel{background:var(--card);border-radius:var(--r);padding:20px;box-shadow:var(--sh);
+transition:transform .28s cubic-bezier(.22,.9,.28,1),box-shadow .28s}
+.panel:hover{transform:translateY(-3px);box-shadow:var(--sh-lift)}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:16px}
 @media(max-width:880px){.two{grid-template-columns:1fr}}
 svg.chart{width:100%;height:auto;display:block;overflow:visible}
 .grid{stroke:var(--grid);stroke-width:1}
 .ax{fill:var(--ink3);font-size:11px;font-family:"IBM Plex Mono",ui-monospace,Menlo,monospace}
-.bar-m:hover,.bar-m:focus{filter:brightness(1.14);outline:none}
-.legend{display:flex;gap:16px;margin-top:10px;font-size:13px;color:var(--ink2)}
-.legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:6px}
+.bar-m{transition:filter .18s}
+.bar-m:hover,.bar-m:focus{filter:brightness(1.12);outline:none}
+.legend{display:flex;gap:16px;margin-top:12px;font-size:13px;color:var(--ink2)}
+.legend i{display:inline-block;width:12px;height:12px;border-radius:4px;margin-right:8px}
 
+/* ── tables ─────────────────────────────────────────────── */
 table{width:100%;border-collapse:collapse;background:var(--card);
-border:1px solid var(--line);border-radius:10px;overflow:hidden;box-shadow:var(--shadow)}
-th{text-align:left;font-size:12px;letter-spacing:.02em;color:var(--ink2);
-font-weight:600;padding:10px 13px;border-bottom:1px solid var(--line);
+border-radius:var(--r);overflow:hidden;box-shadow:var(--sh)}
+th{text-align:left;font-size:12px;letter-spacing:.04em;color:var(--ink2);text-transform:uppercase;
+font-weight:700;padding:14px 16px;border-bottom:1px solid var(--line);
 background:var(--card2);white-space:nowrap}
 th.s{cursor:pointer;user-select:none}
 th.s:hover{color:var(--ink)}
-th.s::after{content:"↕";opacity:.3;margin-left:5px;font-size:10px}
+th.s::after{content:"↕";opacity:.3;margin-left:6px;font-size:10px}
 th.s[data-dir=asc]::after{content:"▲";opacity:1}
 th.s[data-dir=desc]::after{content:"▼";opacity:1}
-td{padding:9px 13px;border-bottom:1px solid var(--line2);font-size:14.5px}
+td{padding:13px 16px;border-bottom:1px solid var(--line2);font-size:14px}
 tbody tr:last-child td{border-bottom:0}
+tbody tr{transition:background .18s}
 tbody tr:hover{background:var(--card2)}
 .num{text-align:right;font-variant-numeric:tabular-nums}
 .dim{color:var(--ink3)}
-.empty{text-align:center;color:var(--ink3);padding:26px;font-size:14.5px}
-a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
-.pill{display:inline-flex;align-items:center;gap:5px;font-size:12.5px;font-weight:600;
-padding:3px 9px;border-radius:20px;white-space:nowrap}
+.empty{text-align:center;color:var(--ink3);padding:32px;font-size:14px}
+a{color:var(--accent);text-decoration:none;font-weight:600}
+a:hover{text-decoration:underline}
+
+/* ── pills, severities, bars ────────────────────────────── */
+.pill{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:700;
+padding:4px 10px;border-radius:8px;white-space:nowrap}
 .pill b{font-size:11px}
 .pill.good{background:var(--goodbg);color:var(--good)}
 .pill.critical{background:var(--critbg);color:var(--critical)}
 .pill.warning{background:var(--warnbg);color:var(--warning)}
 .pill.mute{background:var(--mutebg);color:var(--mute)}
 .sevwrap{display:flex;gap:4px;justify-content:flex-end;align-items:center;flex-wrap:nowrap}
-.sev{display:inline-flex;align-items:center;justify-content:center;min-width:24px;
+.sev{display:inline-flex;align-items:center;justify-content:center;min-width:26px;
 font-family:"IBM Plex Mono",ui-monospace,Menlo,monospace;font-size:12.5px;
-font-weight:500;padding:2px 6px;border-radius:5px;line-height:1.35}
+font-weight:600;padding:3px 7px;border-radius:6px;line-height:1.35}
 .sev.c,.sev.h{background:var(--critbg);color:var(--critical)}
 .sev.m{background:var(--warnbg);color:var(--warning)}
 .sev.l{background:var(--mutebg);color:var(--mute)}
-.spark{width:70px;height:18px;display:block}
-.hb{display:grid;grid-template-columns:1fr 100px 34px;gap:10px;align-items:center;
-padding:5px 0;font-size:14px}
+.spark{width:74px;height:20px;display:block}
+.hb{display:grid;grid-template-columns:1fr 120px 64px;gap:12px;align-items:center;
+padding:7px 0;font-size:14px}
 .hbl{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.hbt{background:var(--mutebg);border-radius:4px;height:9px;display:block;overflow:hidden}
-.hbt i{display:block;height:9px;border-radius:4px}
+.hbt{background:var(--mutebg);border-radius:99px;height:10px;display:block;overflow:hidden}
+.hbt i{display:block;height:10px;border-radius:99px;
+transition:width 1.1s cubic-bezier(.22,.9,.28,1)}
 .hbt i.bad{background:var(--critical)}.hbt i.warn{background:var(--warning)}
-.hbt i.good{background:var(--good)}.hbt i.acc{background:var(--s1)}
-.hbv{text-align:right;color:var(--ink2);font-variant-numeric:tabular-nums}
-.note{font-size:13.5px;color:var(--ink2);margin:11px 0 0}
+.hbt i.good{background:var(--good)}.hbt i.acc{background:var(--m4)}
+.hbv{text-align:right;color:var(--ink2);font-variant-numeric:tabular-nums;font-weight:600}
+.note{font-size:13.5px;color:var(--ink2);margin:12px 0 0}
 code{font-family:"IBM Plex Mono",ui-monospace,Menlo,monospace;font-size:13px;
-background:var(--mutebg);padding:2px 5px;border-radius:4px}
-footer{margin-top:38px;padding-top:16px;border-top:1px solid var(--line);
+background:var(--mutebg);padding:2px 6px;border-radius:6px}
+footer{margin-top:44px;padding-top:20px;border-top:1px solid var(--line);
 font-size:13px;color:var(--ink3)}
 .scroll{overflow-x:auto}
 #tip{position:fixed;z-index:60;pointer-events:none;opacity:0;background:var(--card);
-border:1px solid var(--line);border-radius:8px;padding:8px 11px;font-size:13.5px;
-box-shadow:0 6px 18px rgba(26,25,23,.16);max-width:270px}
+border:1px solid var(--line);border-radius:12px;padding:10px 13px;font-size:13.5px;
+box-shadow:var(--sh-lift);max-width:280px}
 #tip b{font-size:15px;font-variant-numeric:tabular-nums}
-#tip .k{display:inline-block;width:12px;height:3px;border-radius:2px;margin-right:7px;vertical-align:4px}
+#tip .k{display:inline-block;width:12px;height:3px;border-radius:2px;margin-right:8px;vertical-align:4px}
 @media(prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 """
 
@@ -226,6 +272,16 @@ function delta(now, prev) {
   if (prev === 0) return now ? {t:"new", c:"flat"} : null;
   const p = Math.round((now-prev)/prev*100);
   if (!p) return {t:"0%", c:"flat"};
+  // Hard rule: never more than three digits in a delta badge.
+  //   |p| < 1000        -> a percentage, at most 3 digits ("+999%", "-100%").
+  //                        Negatives cannot pass -100% because now >= 0.
+  //   p >= 1000         -> a percentage that large is noise ("+25200%"); the
+  //                        multiplier is both shorter and clearer ("x253").
+  //   multiplier > 999  -> clamp, so even that cannot spill to four digits.
+  if (p >= 1000) {
+    const x = Math.round(now/prev);
+    return { t: x > 999 ? "\u00d7999+" : "\u00d7"+x, c:"up" };
+  }
   return { t:(p>0?"+":"")+p+"%", c: p>0?"up":"down" };
 }
 
@@ -383,6 +439,40 @@ function sparkFor(r){
     rc.setAttribute("rx","1");rc.setAttribute("fill","var(--s1)");svg.appendChild(rc); });
   return svg;
 }
+
+/* ── motion: count figures up, grow bars from zero ──────────────────
+   Runs after every render pass, so it also fires when a filter redraws
+   the page. Honours prefers-reduced-motion by snapping to the value. */
+const RM_ = matchMedia("(prefers-reduced-motion: reduce)").matches;
+function animateFigures(){
+  document.querySelectorAll(".tile b").forEach(el=>{
+    /* The value lives in the FIRST TEXT NODE; a .delta badge may follow it as
+       a sibling element. Mutate only that node -- writing el.textContent would
+       destroy the badge. */
+    const node=el.firstChild;
+    if(!node||node.nodeType!==3) return;
+    const raw=node.nodeValue.trim();
+    const m=raw.match(/^(-?[\d,]+(?:\.\d+)?)(.*)$/);
+    if(!m) return;
+    const to=parseFloat(m[1].replace(/,/g,"")), tail=m[2]||"";
+    if(!isFinite(to)||RM_||el.dataset.done===raw) return;
+    el.dataset.done=raw;
+    const dec=(m[1].includes(".")?1:0), t0=performance.now();
+    (function tick(t){
+      const pr=Math.min(1,(t-t0)/900), e=1-Math.pow(1-pr,3);
+      node.nodeValue=(to*e).toFixed(dec).replace(/\B(?=(\d{3})+(?!\d))/g,",")+tail;
+      if(pr<1) requestAnimationFrame(tick); else node.nodeValue=raw;
+    })(t0);
+  });
+  document.querySelectorAll(".hbt i").forEach((el,i)=>{
+    const w=el.style.width;
+    if(!w||el.dataset.grown) return;
+    el.dataset.grown="1"; el.style.width="0";
+    if(RM_){el.style.width=w;return;}
+    setTimeout(()=>{el.style.width=w;}, 60+i*45);
+  });
+}
+
 """
 
 JS += r"""
@@ -531,6 +621,7 @@ function render(){
   paintRT();
   paintCQ();
   $("#chip").textContent=`${rs.length} repo${rs.length===1?"":"s"} · ${openPRs.length} open PR${openPRs.length===1?"":"s"}`;
+  animateFigures();
 }
 
 function restoreMedian(){
@@ -564,16 +655,28 @@ function paintRT(){
     for(const [w,t] of Object.entries(r.wf_time||{})) byWf[w]=(byWf[w]||0)+t;
   }
   const fmt=x=> x<60?Math.round(x)+"s" : x<3600?(x/60).toFixed(1)+"m" : (x/3600).toFixed(1)+"h";
+  /* GitHub bills runner minutes at a different rate per OS: Linux 1x,
+     Windows 2x, macOS 10x. Ranking by RAW seconds therefore hides where the
+     spend actually goes -- a macOS repo can sit mid-table on raw time while
+     being the single largest consumer once weighted. Rank by the billable
+     equivalent and show the multiplier, so the ordering means something. */
+  const RATE={ubuntu:1,linux:1,windows:2,macos:10};
+  const rateOf=os=>RATE[os]||1;
+  const billable=byRepo.reduce((a,[,v,os])=>a+v*rateOf(os),0);
   paintTiles($("#rt"),[
     ["Runner time",fmt(secs),`across ${runs} run${runs===1?"":"s"}`,null],
+    ["Billable equivalent",fmt(billable),
+      billable>secs?`${(billable/secs).toFixed(1)}x raw · Linux 1x, macOS 10x`:"all Linux, 1x",null],
     ["Runs",runs,`in the last ${state.days}d`,null],
     ["Average run",runs?fmt(secs/runs):"—","",null],
-    ["macOS time",macSecs?fmt(macSecs):"—",macSecs?"10x rate if ever private":"none",null],
+    ["macOS time",macSecs?fmt(macSecs):"—",macSecs?`${fmt(macSecs*10)} billable`:"none",null],
   ]);
-  const top=Math.max(...byRepo.map(x=>x[1]),1);
-  hbars($("#rtRepo"), byRepo.sort((a,b)=>b[1]-a[1])
-    .map(([n,v,os])=>[n+(os==="macos"?"  (macOS)":""),fmt(v),
-      os==="macos"?"warn":"acc",`https://github.com/${OWNER}/${n}/actions`,v/top]));
+  const wRepo=byRepo.map(([n,v,os])=>[n,v,os,v*rateOf(os)]);
+  const wtop=Math.max(...wRepo.map(x=>x[3]),1);
+  hbars($("#rtRepo"), wRepo.sort((a,b)=>b[3]-a[3])
+    .map(([n,v,os,w])=>[n+(rateOf(os)>1?`  ${os} ${rateOf(os)}x · ${fmt(v)} raw`:""),
+      fmt(w), rateOf(os)>1?"warn":"acc",
+      `https://github.com/${OWNER}/${n}/actions`, w/wtop]));
   const wf=Object.entries(byWf).filter(x=>x[1]>0).sort((a,b)=>b[1]-a[1]).slice(0,6);
   const wtop=Math.max(...wf.map(x=>x[1]),1);
   hbars($("#rtWf"), wf.map(([n,v])=>[n,fmt(v),"acc",null,v/wtop]));
@@ -594,6 +697,20 @@ function paintCQ(){
   const covN=covRs.reduce((a,r)=>a+num(r,"ncloc"),0);
   const failing=rs.filter(r=>r.sonar.gate==="ERROR").length;
   const cq=repos().filter(r=>r.codeql).reduce((a,r)=>a+r.codeql.total,0);
+  /* Secret scanning: repos where the API answered at all are "covered";
+     a null means the feature is off or the token cannot see it. Reporting
+     coverage matters as much as the count -- zero findings across zero
+     scanned repos is not the same as zero findings across twelve. */
+  const secAll=repos().filter(r=>r.secrets);
+  const secOn=secAll.filter(r=>r.secrets.status==="enabled");
+  const secOff=secAll.filter(r=>r.secrets.status==="disabled");
+  const secN=secOn.reduce((a,r)=>a+r.secrets.total,0);
+  /* Zero findings across zero scanned repos is not the same as zero findings
+     across twelve, so the caption reports coverage, and an unscanned repo is
+     called out rather than silently counted as clean. */
+  const secCov=secOff.length
+    ? `${secOn.length} scanned · ${secOff.length} not scanning`
+    : `${secOn.length}/${repos().length} repos scanned`;
   paintTiles($("#sq"),[
     ["Quality gates",`${rs.length-failing}/${rs.length}`,"passing",null],
     ["Coverage",(covN?covW/covN:0).toFixed(1)+"%","weighted by lines",null],
@@ -601,6 +718,7 @@ function paintCQ(){
     ["Bugs",bugs,"",null],
     ["Code smells",smell,fmtDebt(debt)+" estimated debt",null],
     ["CodeQL",cq,"open security alerts",null],
+    ["Exposed secrets",secOn.length?secN:"—",secAll.length?secCov:"scanning unavailable",null],
   ]);
 
   sortable($("#tSonar"),rs.map(r=>({...r,
@@ -812,7 +930,7 @@ def build_html(D):
 <title>{E(OWNER)} — engineering dashboard</title>
 <meta name="description" content="Open PRs, delivery metrics, security alerts and code quality across every repository.">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Public+Sans:wght@400;500;600;700;800&display=swap">
 <style>{CSS}</style></head><body>
 <div class="wrap">
 <header><h1>{E(OWNER)}</h1><span class="chip mono" id="chip"></span><span class="rbwrap"><span class="rbstat" id="rbstat" role="status" aria-live="polite"></span><button class="rbkey" id="rbforget" type="button" hidden>Forget token</button><button class="rebuild" id="rebuild" type="button">Rebuild now</button></span></header>
