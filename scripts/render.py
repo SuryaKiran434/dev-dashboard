@@ -217,7 +217,11 @@ const state = { days: 90, repo: "*", q: "" };
 // minutes -> "3h 20m". Rounding each repo to whole hours and summing those is
 // what made the total disagree with the rows; format once, at the end.
 const fmtDebt = m => !m ? "—" : m<60 ? m+"m" : (m%60 ? Math.floor(m/60)+"h "+(m%60)+"m" : Math.floor(m/60)+"h");
-const fmtDur = h => h == null ? "—" : h < 1 ? Math.round(h*60)+"m"
+/* pr_events, alert events and run events all store EPOCH HOURS, so anything
+   inside the hour arrives as 0. Rendering that as "0m" claims a precision the
+   data does not have -- and reads as "instant" when it means "within the
+   hour". 72% of merges land in this bucket, so it is the common case. */
+const fmtDur = h => h == null ? "—" : h < 1 ? "<1h"
   : h < 48 ? h.toFixed(1)+"h" : (h/24).toFixed(1)+"d";
 const median = a => { if (!a.length) return null; const s=[...a].sort((x,y)=>x-y), m=s.length>>1;
   return s.length%2 ? s[m] : (s[m-1]+s[m])/2; };
@@ -607,7 +611,7 @@ function render(){
     {key:"lead",label:"Median merge time",help:"Median time from a pull request being opened to being merged, within the selected window. Blank when nothing merged.",cls:"num mono",val:r=>r._lead??1e9,render:r=>fmtDur(r._lead)},
     {key:"fr",label:"CI failure rate",help:"Share of completed CI runs on the default branch that failed, within the selected window.",cls:"num mono",val:r=>r._fr??-1,render:r=>r._fr==null?"—":r._fr.toFixed(0)+"%"},
     {key:"ci",label:"CI",val:r=>r.ci_latest==="failure"?0:1,render:r=>ciPill(r.ci_latest)},
-    {key:"alerts",label:"Alerts",cls:"num",val:r=>r._sev?r._sev.c*100+r._sev.h*10+r._sev.m:-1,
+    {key:"alerts",label:"Open alerts",cls:"num",val:r=>r._sev?r._sev.c*100+r._sev.h*10+r._sev.m:-1,
       render:r=>{ if(!r._sev)return el("span","dim","—"); const s=el("span","sevwrap");
         [["c",r._sev.c],["h",r._sev.h],["m",r._sev.m],["l",r._sev.l]].forEach(([k,v])=>{
           if(v){const c=el("span","sev "+k,v);
@@ -661,12 +665,13 @@ function paintRT(){
      being the single largest consumer once weighted. Rank by the billable
      equivalent and show the multiplier, so the ordering means something. */
   const RATE={ubuntu:1,linux:1,windows:2,macos:10};
+  const OSLABEL={macos:"macOS",windows:"Windows",ubuntu:"Linux",linux:"Linux"};
   const rateOf=os=>RATE[os]||1;
   const billable=byRepo.reduce((a,[,v,os])=>a+v*rateOf(os),0);
   paintTiles($("#rt"),[
     ["Runner time",fmt(secs),`across ${runs} run${runs===1?"":"s"}`,null],
     ["Billable equivalent",fmt(billable),
-      billable>secs?`${(billable/secs).toFixed(1)}x raw · Linux 1x, macOS 10x`:"all Linux, 1x",null],
+      billable>secs?`${(billable/secs).toFixed(1)}\u00d7 raw \u00b7 Linux 1\u00d7, macOS 10\u00d7`:"all Linux, 1\u00d7",null],
     ["Runs",runs,`in the last ${state.days}d`,null],
     ["Average run",runs?fmt(secs/runs):"—","",null],
     ["macOS time",macSecs?fmt(macSecs):"—",macSecs?`${fmt(macSecs*10)} billable`:"none",null],
@@ -674,16 +679,18 @@ function paintRT(){
   const wRepo=byRepo.map(([n,v,os])=>[n,v,os,v*rateOf(os)]);
   const rtop=Math.max(...wRepo.map(x=>x[3]),1);
   hbars($("#rtRepo"), wRepo.sort((a,b)=>b[3]-a[3])
-    .map(([n,v,os,w])=>[n+(rateOf(os)>1?`  ${os} ${rateOf(os)}x · ${fmt(v)} raw`:""),
-      fmt(w), rateOf(os)>1?"warn":"acc",
-      `https://github.com/${OWNER}/${n}/actions`, w/rtop]));
+    .map(([n,v,os,w])=>[n, fmt(w), rateOf(os)>1?"warn":"acc",
+      `https://github.com/${OWNER}/${n}/actions`, w/rtop,
+      rateOf(os)>1?`${OSLABEL[os]||os} ${rateOf(os)}\u00d7 \u00b7 ${fmt(v)} raw`:null]));
   const wf=Object.entries(byWf).filter(x=>x[1]>0).sort((a,b)=>b[1]-a[1]).slice(0,6);
   const wtop=Math.max(...wf.map(x=>x[1]),1);
   hbars($("#rtWf"), wf.map(([n,v])=>[n,fmt(v),"acc",null,v/wtop]));
 }
 
 function paintCQ(){
-  const rs=repos().filter(r=>r.sonar&&r.sonar.measures);
+  /* `{}` is truthy in JS, so a repo Sonar knows nothing about (measures: {})
+     slipped through this filter and inflated every denominator. */
+  const rs=repos().filter(r=>r.sonar&&r.sonar.measures&&Object.keys(r.sonar.measures).length);
   const num=(r,k)=>parseFloat((r.sonar.measures[k]??"0"))||0;
   const vuln=rs.reduce((a,r)=>a+num(r,"vulnerabilities"),0);
   const bugs=rs.reduce((a,r)=>a+num(r,"bugs"),0);
@@ -695,7 +702,12 @@ function paintCQ(){
   const covRs=rs.filter(r=>r.sonar.measures.coverage!=null);
   const covW=covRs.reduce((a,r)=>a+num(r,"coverage")*num(r,"ncloc"),0);
   const covN=covRs.reduce((a,r)=>a+num(r,"ncloc"),0);
-  const failing=rs.filter(r=>r.sonar.gate==="ERROR").length;
+  /* A gate of "NONE" means no gate is configured -- that is not the same as
+     passing one, so those repos are excluded from the ratio and reported
+     separately rather than silently counted as green. */
+  const gated=rs.filter(r=>r.sonar.gate==="OK"||r.sonar.gate==="ERROR");
+  const ungated=rs.length-gated.length;
+  const failing=gated.filter(r=>r.sonar.gate==="ERROR").length;
   const cq=repos().filter(r=>r.codeql).reduce((a,r)=>a+r.codeql.total,0);
   /* Secret scanning: repos where the API answered at all are "covered";
      a null means the feature is off or the token cannot see it. Reporting
@@ -712,7 +724,8 @@ function paintCQ(){
     ? `${secOn.length} scanned · ${secOff.length} not scanning`
     : `${secOn.length}/${repos().length} repos scanned`;
   paintTiles($("#sq"),[
-    ["Quality gates",`${rs.length-failing}/${rs.length}`,"passing",null],
+    ["Quality gates",gated.length?`${gated.length-failing}/${gated.length}`:"—",
+      ungated?`passing · ${ungated} without a gate`:"passing",null],
     ["Coverage",(covN?covW/covN:0).toFixed(1)+"%","weighted by lines",null],
     ["Vulnerabilities",vuln,"all code, not just new",null],
     ["Bugs",bugs,"",null],
@@ -756,8 +769,12 @@ function hbars(host,rows){
   if(!rows.length){ host.appendChild(el("p","empty","Nothing to show.")); return; }
   const nums=rows.map(r=>typeof r[1]==="number"?r[1]:0);
   const top=Math.max(...nums,1);
-  rows.forEach(([label,val,cls,href,frac])=>{ const d=el("div","hb");
+  rows.forEach(([label,val,cls,href,frac,note])=>{ const d=el("div","hb");
     const l=el("span","hbl mono"); l.appendChild(href?link(label,href):document.createTextNode(label));
+    /* Annotations go in their own dimmed span. Concatenating them onto the
+       label made the link read "folderlock-mac macos 10x - 1.1h raw", as if
+       that were the repository's name. */
+    if(note) l.appendChild(el("span","dim",` ${note}`));
     const t=el("span","hbt"); const i=el("i",cls);
     const w = frac!=null ? frac*100 : (typeof val==="number" ? val/top*100 : 0);
     i.style.width=Math.max(w,2).toFixed(1)+"%";
