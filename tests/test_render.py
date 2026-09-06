@@ -9,6 +9,7 @@ mount point the JS expects is present, that the payload survives the trip into
 import json
 import os
 import re
+from html.parser import HTMLParser
 import shutil
 import subprocess
 
@@ -339,15 +340,38 @@ def test_importing_render_does_not_touch_the_filesystem(monkeypatch):
 # `const` in the same scope is a SyntaxError -- the page shipped with no
 # metrics at all and 77 green tests.
 #
+class _ScriptCollector(HTMLParser):
+    """Collect inline <script> bodies with a real parser.
+
+    Deliberately not a regex: CodeQL's py/bad-tag-filter is right that
+    matching tags by pattern is fragile, and a helper that silently found
+    nothing would make the parse test below pass by having nothing to check --
+    failing open, the worst outcome for a test whose job is catching syntax
+    errors. HTMLParser is stdlib and handles casing and attributes properly.
+    """
+
+    def __init__(self):
+        super().__init__(convert_charrefs=False)
+        self.blocks, self._in = [], False
+
+    def handle_starttag(self, tag, attrs):
+        self._in = tag.lower() == "script"
+
+    def handle_endtag(self, tag):
+        if tag.lower() == "script":
+            self._in = False
+
+    def handle_data(self, data):
+        if self._in and data.strip():
+            self.blocks.append(data)
+
+
 def _page_script(html):
     """The last inline <script> is the dashboard's own code."""
-    # re.I because a tag filter that only matches lower case is the classic
-    # py/bad-tag-filter defect. render.py emits lower case today, but a helper
-    # that silently returns nothing on <SCRIPT> would fail open -- this test
-    # would pass by finding no script to parse.
-    blocks = re.findall(r"<script[^>]*>(.*?)</script>", html, re.S | re.I)
-    assert blocks, "page has no inline script"
-    return blocks[-1]
+    c = _ScriptCollector()
+    c.feed(html)
+    assert c.blocks, "page has no inline script"
+    return c.blocks[-1]
 
 
 def test_emitted_javascript_parses(data, tmp_path):
