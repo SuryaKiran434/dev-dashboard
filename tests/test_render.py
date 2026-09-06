@@ -341,7 +341,11 @@ def test_importing_render_does_not_touch_the_filesystem(monkeypatch):
 #
 def _page_script(html):
     """The last inline <script> is the dashboard's own code."""
-    blocks = re.findall(r"<script[^>]*>(.*?)</script>", html, re.S)
+    # re.I because a tag filter that only matches lower case is the classic
+    # py/bad-tag-filter defect. render.py emits lower case today, but a helper
+    # that silently returns nothing on <SCRIPT> would fail open -- this test
+    # would pass by finding no script to parse.
+    blocks = re.findall(r"<script[^>]*>(.*?)</script>", html, re.S | re.I)
     assert blocks, "page has no inline script"
     return blocks[-1]
 
