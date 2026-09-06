@@ -7,7 +7,11 @@ mount point the JS expects is present, that the payload survives the trip into
 ``window.__DATA__`` intact, and that untrusted values are escaped.
 """
 import json
+import os
 import re
+from html.parser import HTMLParser
+import shutil
+import subprocess
 
 import pytest
 
@@ -324,3 +328,61 @@ def test_importing_render_does_not_touch_the_filesystem(monkeypatch):
 
     monkeypatch.setattr("builtins.open", boom)
     importlib.reload(render)
+
+
+# --------------------------------------------------------------------------
+# the emitted JavaScript must actually parse
+# --------------------------------------------------------------------------
+# Every metric on this page is computed in the browser, so a single syntax
+# error in the emitted script means the whole dashboard renders blank while
+# every other test here still passes. That is exactly what happened: a new
+# `const wtop` was added to paintRT() beside the existing one, and a duplicate
+# `const` in the same scope is a SyntaxError -- the page shipped with no
+# metrics at all and 77 green tests.
+#
+class _ScriptCollector(HTMLParser):
+    """Collect inline <script> bodies with a real parser.
+
+    Deliberately not a regex: CodeQL's py/bad-tag-filter is right that
+    matching tags by pattern is fragile, and a helper that silently found
+    nothing would make the parse test below pass by having nothing to check --
+    failing open, the worst outcome for a test whose job is catching syntax
+    errors. HTMLParser is stdlib and handles casing and attributes properly.
+    """
+
+    def __init__(self):
+        super().__init__(convert_charrefs=False)
+        self.blocks, self._in = [], False
+
+    def handle_starttag(self, tag, attrs):
+        self._in = tag.lower() == "script"
+
+    def handle_endtag(self, tag):
+        if tag.lower() == "script":
+            self._in = False
+
+    def handle_data(self, data):
+        if self._in and data.strip():
+            self.blocks.append(data)
+
+
+def _page_script(html):
+    """The last inline <script> is the dashboard's own code."""
+    c = _ScriptCollector()
+    c.feed(html)
+    assert c.blocks, "page has no inline script"
+    return c.blocks[-1]
+
+
+def test_emitted_javascript_parses(data, tmp_path):
+    """Parse the emitted script with a real JS engine, if one is present."""
+    node = shutil.which("node")
+    if not node:
+        # Skipping locally is fine; skipping in CI is how a blank page ships.
+        assert not os.environ.get("CI"), "node must be available in CI to parse the emitted script"
+        pytest.skip("node not available to parse the emitted script")
+    js = tmp_path / "page.js"
+    js.write_text(_page_script(render.build_html(data)))
+    proc = subprocess.run([node, "--check", str(js)],
+                          capture_output=True, text=True)
+    assert proc.returncode == 0, f"emitted JS does not parse:\n{proc.stderr}"

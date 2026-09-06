@@ -672,11 +672,11 @@ function paintRT(){
     ["macOS time",macSecs?fmt(macSecs):"—",macSecs?`${fmt(macSecs*10)} billable`:"none",null],
   ]);
   const wRepo=byRepo.map(([n,v,os])=>[n,v,os,v*rateOf(os)]);
-  const wtop=Math.max(...wRepo.map(x=>x[3]),1);
+  const rtop=Math.max(...wRepo.map(x=>x[3]),1);
   hbars($("#rtRepo"), wRepo.sort((a,b)=>b[3]-a[3])
     .map(([n,v,os,w])=>[n+(rateOf(os)>1?`  ${os} ${rateOf(os)}x · ${fmt(v)} raw`:""),
       fmt(w), rateOf(os)>1?"warn":"acc",
-      `https://github.com/${OWNER}/${n}/actions`, w/wtop]));
+      `https://github.com/${OWNER}/${n}/actions`, w/rtop]));
   const wf=Object.entries(byWf).filter(x=>x[1]>0).sort((a,b)=>b[1]-a[1]).slice(0,6);
   const wtop=Math.max(...wf.map(x=>x[1]),1);
   hbars($("#rtWf"), wf.map(([n,v])=>[n,fmt(v),"acc",null,v/wtop]));
